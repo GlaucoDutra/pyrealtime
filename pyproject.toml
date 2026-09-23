@@ -18,6 +18,13 @@ api = [
   "fastapi>=0.115,<1",
   "uvicorn[standard]>=0.30,<1",
 ]
+files = [
+  "Pillow>=11,<13",
+  "pypdf>=5,<7",
+  "openpyxl>=3.1,<4",
+  "python-docx>=1.1,<2",
+  "python-pptx>=1,<2",
+]
 dev = [
   "pytest>=8,<10",
 ]

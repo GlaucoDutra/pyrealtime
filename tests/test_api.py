@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from pyrealtime import Principal, ServerSettings, ToolRegistry
+from pyrealtime import AttachmentProcessor, Principal, ServerSettings, ToolRegistry
 from pyrealtime.api import create_app
 
 
@@ -93,3 +93,27 @@ def test_unified_session_proxy_accepts_sdp():
     assert response.status_code == 200
     assert response.text == "answer-for:offer-sdp"
     assert response.headers["content-type"].startswith("application/sdp")
+
+
+def test_file_preparation_is_authenticated_and_reusable():
+    app = create_app(settings(), attachments=AttachmentProcessor(), gateway=FakeGateway())
+    with TestClient(app) as client:
+        unauthorized = client.post(
+            "/v1/files/prepare",
+            headers={"X-Filename": "notes.txt", "Content-Type": "text/plain"},
+            content=b"hello",
+        )
+        prepared = client.post(
+            "/v1/files/prepare",
+            headers={
+                "Authorization": "Bearer app-secret",
+                "X-Filename": "folder%2Fnotes.txt",
+                "Content-Type": "text/plain",
+            },
+            content=b"hello",
+        )
+
+    assert unauthorized.status_code == 401
+    assert prepared.status_code == 200
+    assert prepared.json()["filename"] == "notes.txt"
+    assert prepared.json()["chunks"] == ["hello"]

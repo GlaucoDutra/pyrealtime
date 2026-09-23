@@ -7,14 +7,16 @@ import inspect
 import secrets
 from contextlib import asynccontextmanager
 from typing import Any, Awaitable, Callable, Mapping
+from urllib.parse import unquote
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
+from .attachments import AttachmentProcessor
 from .config import ServerSettings
+from .exceptions import AttachmentError, AttachmentTooLargeError, UpstreamError
 from .gateway import OpenAIRealtimeGateway
-from .exceptions import UpstreamError
 from .principal import Principal
 from .tools import ToolRegistry
 
@@ -35,6 +37,7 @@ def create_app(
     tools: ToolRegistry | None = None,
     authenticate: Authenticator | None = None,
     gateway: OpenAIRealtimeGateway | None = None,
+    attachments: AttachmentProcessor | None = None,
 ) -> FastAPI:
     """Create an app API without coupling the library to an authentication provider."""
 
@@ -59,7 +62,7 @@ def create_app(
             allow_origins=list(settings.cors_origins),
             allow_credentials="*" not in settings.cors_origins,
             allow_methods=["GET", "POST", "OPTIONS"],
-            allow_headers=["Authorization", "Content-Type"],
+            allow_headers=["Authorization", "Content-Type", "X-Filename"],
         )
 
     @app.exception_handler(UpstreamError)
@@ -135,5 +138,38 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if attachments is not None:
+
+        @app.post("/v1/files/prepare")
+        async def prepare_file(
+            request: Request,
+            principal: Principal = Depends(resolve_principal),
+        ) -> dict[str, Any]:
+            del principal  # Authentication is required; preparation itself is stateless.
+            raw_name = request.headers.get("x-filename", "")
+            try:
+                filename = unquote(raw_name, errors="strict")
+            except UnicodeDecodeError as exc:
+                raise HTTPException(status_code=400, detail="Invalid X-Filename encoding") from exc
+            content_length = request.headers.get("content-length")
+            if content_length and content_length.isdigit() and int(content_length) > attachments.policy.max_file_bytes:
+                raise HTTPException(status_code=413, detail="File exceeds the configured size limit")
+            body = bytearray()
+            async for chunk in request.stream():
+                body.extend(chunk)
+                if len(body) > attachments.policy.max_file_bytes:
+                    raise HTTPException(status_code=413, detail="File exceeds the configured size limit")
+            try:
+                prepared = await attachments.prepare(
+                    filename,
+                    request.headers.get("content-type", "application/octet-stream"),
+                    bytes(body),
+                )
+            except AttachmentTooLargeError as exc:
+                raise HTTPException(status_code=413, detail=str(exc)) from exc
+            except AttachmentError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            return prepared.to_dict()
 
     return app

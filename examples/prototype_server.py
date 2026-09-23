@@ -11,7 +11,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from pyrealtime import Principal, ServerSettings, ToolRegistry
+from pyrealtime import AttachmentProcessor, Principal, ServerSettings, ToolRegistry
 from pyrealtime.api import create_app
 
 settings = ServerSettings.from_env()
@@ -106,4 +106,4 @@ async def list_notes(_: dict[str, Any], principal: Principal) -> dict[str, Any]:
     return {"ok": True, "count": len(notes), "notes": notes}
 
 
-app = create_app(settings, tools=tools)
+app = create_app(settings, tools=tools, attachments=AttachmentProcessor())

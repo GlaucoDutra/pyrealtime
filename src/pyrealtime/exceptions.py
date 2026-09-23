@@ -13,6 +13,14 @@ class AuthenticationError(PyRealtimeError):
     """Raised when application authentication fails."""
 
 
+class AttachmentError(PyRealtimeError):
+    """Raised when an attachment cannot be safely prepared."""
+
+
+class AttachmentTooLargeError(AttachmentError):
+    """Raised when an attachment exceeds a configured transport limit."""
+
+
 class UpstreamError(PyRealtimeError):
     """Raised when OpenAI or the configured application API rejects a request."""
 

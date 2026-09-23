@@ -7,7 +7,7 @@ The backend keeps the standard OpenAI API key private, creates short-lived clien
 ## Install
 
 ```bash
-python -m pip install -e ".[api,dev]"
+python -m pip install -e ".[api,dev,files]"
 ```
 
 Copy `.env.example` into your deployment environment and set `OPENAI_API_KEY`. Never expose that value in frontend code.
@@ -47,6 +47,7 @@ asyncio.run(main())
 - `POST /v1/realtime/token`
 - `POST /v1/realtime/session` (optional unified SDP proxy)
 - `POST /v1/tools/{tool_name}`
+- `POST /v1/files/prepare` (when an `AttachmentProcessor` is supplied)
 
 Run it with:
 
@@ -108,6 +109,21 @@ Tool arguments are model-generated input, not authorization. Every handler must 
 Anonymous access is disabled by default. It must be enabled explicitly with `PYREALTIME_ALLOW_ANONYMOUS=true`.
 
 Set `APP_CORS_ORIGINS` to a comma-separated allowlist of frontend origins. Do not use a wildcard with credentialed production requests.
+
+## Reusable attachment processing
+
+Install the `files` extra and pass an `AttachmentProcessor` to `create_app`. The authenticated `POST /v1/files/prepare` endpoint accepts the raw file body, its MIME type in `Content-Type`, and its URL-encoded name in `X-Filename`.
+
+PyRealtime validates limits and returns a stable prepared-attachment model. It extracts and chunks text and source files, PDF, XLSX/XLSM, DOCX, and PPTX content; it also normalizes images for a Realtime image message. Processing is stateless and does not persist uploads.
+
+```python
+from pyrealtime import AttachmentProcessor
+from pyrealtime.api import create_app
+
+app = create_app(settings, attachments=AttachmentProcessor())
+```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the permanent boundary between reusable library behavior and client-specific code.
 
 ## Frontend boundary
 
