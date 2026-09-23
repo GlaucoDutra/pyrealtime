@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyrealtime"
+version = "0.1.0"
+description = "Framework-neutral Python backend toolkit for browser-based OpenAI Realtime applications."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Simple Desenvolvedores" }]
+dependencies = [
+  "httpx>=0.27,<1",
+]
+
+[project.optional-dependencies]
+api = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.30,<1",
+]
+dev = [
+  "pytest>=8,<10",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pyrealtime"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
