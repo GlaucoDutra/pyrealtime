@@ -28,5 +28,6 @@ def test_server_settings_load_hosted_tool_configuration(monkeypatch):
     settings = ServerSettings.from_env()
 
     assert settings.tool_model == "gpt-5-mini"
+    assert settings.tool_timeout_seconds == 120.0
     assert settings.image_model == "gpt-image-2.5-flare"
     assert settings.vector_store_ids == ("vs_one", "vs_two")

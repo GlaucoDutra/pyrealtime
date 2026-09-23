@@ -41,7 +41,10 @@ class OpenAIHostedTools:
     def register(self, registry: ToolRegistry) -> None:
         @registry.tool(
             name="web_search",
-            description="Search the live web for current external information and return a sourced answer.",
+            description=(
+                "Search the live web for current information or open and read an exact public URL, "
+                "then return a sourced answer. Use this tool when the user asks about a linked webpage."
+            ),
             parameters={
                 "type": "object",
                 "properties": {"query": {"type": "string", "minLength": 1, "maxLength": 4000}},
@@ -191,18 +194,29 @@ class OpenAIHostedTools:
             "Content-Type": "application/json",
             "OpenAI-Safety-Identifier": hashlib.sha256(principal.id.encode("utf-8")).hexdigest(),
         }
-        if self.http_client is not None:
-            response = await self.http_client.post(f"{self.base_url}{path}", headers=headers, json=body)
-        else:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(f"{self.base_url}{path}", headers=headers, json=body)
+        try:
+            if self.http_client is not None:
+                response = await self.http_client.post(f"{self.base_url}{path}", headers=headers, json=body)
+            else:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    response = await client.post(f"{self.base_url}{path}", headers=headers, json=body)
+        except httpx.TimeoutException as exc:
+            raise UpstreamError(
+                "OpenAI hosted tool request timed out",
+                status_code=504,
+            ) from exc
+        except httpx.RequestError as exc:
+            raise UpstreamError("Could not reach OpenAI for the hosted tool request") from exc
         if not response.is_success:
             raise UpstreamError(
                 "OpenAI rejected the hosted tool request",
                 status_code=response.status_code,
                 response_body=response.text[:1000],
             )
-        payload = response.json()
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise UpstreamError("OpenAI returned an invalid hosted tool response") from exc
         if not isinstance(payload, dict):
             raise UpstreamError("OpenAI returned an invalid hosted tool response")
         return payload

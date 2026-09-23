@@ -10,7 +10,7 @@ OpenAIHostedTools(
     response_model=settings.tool_model,
     image_model=settings.image_model,
     vector_store_ids=settings.vector_store_ids,
-    timeout=settings.request_timeout_seconds,
+    timeout=settings.tool_timeout_seconds,
 ).register(tools)
 
 

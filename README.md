@@ -127,7 +127,7 @@ This registers:
 - `generate_image`, returning a browser-ready image data URI
 - `file_search`, backed by OpenAI's hosted file search when at least one vector store is configured
 
-No application-specific executor URL is required. Web search works immediately. File search needs a knowledge base, so configure existing OpenAI vector stores as a comma-separated list in `PYREALTIME_VECTOR_STORE_IDS`; the tool is omitted when the list is empty. Use `PYREALTIME_TOOL_MODEL` and `PYREALTIME_IMAGE_MODEL` to override the inexpensive defaults.
+No application-specific executor URL is required. Web search works immediately and can search for a topic or read a specific public URL. File search needs a knowledge base, so configure existing OpenAI vector stores as a comma-separated list in `PYREALTIME_VECTOR_STORE_IDS`; the tool is omitted when the list is empty. Use `PYREALTIME_TOOL_MODEL` and `PYREALTIME_IMAGE_MODEL` to override the inexpensive defaults. Hosted tools have a separate 120-second timeout, configurable with `PYREALTIME_TOOL_TIMEOUT_SECONDS`, because searching and reading pages can take longer than Realtime session setup.
 
 ## Application authentication
 

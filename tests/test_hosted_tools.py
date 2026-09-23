@@ -2,8 +2,9 @@ import asyncio
 import json
 
 import httpx
+import pytest
 
-from pyrealtime import OpenAIHostedTools, Principal, ToolRegistry
+from pyrealtime import OpenAIHostedTools, Principal, ToolRegistry, UpstreamError
 
 
 def test_web_search_uses_openai_hosted_tool_without_app_endpoint():
@@ -64,3 +65,22 @@ def test_image_generation_returns_a_browser_ready_data_uri():
     result = asyncio.run(exercise())
     assert result["image_data_uri"] == "data:image/png;base64,aW1n"
     assert result["revised_prompt"] == "A small blue robot"
+
+
+def test_hosted_tool_timeout_becomes_a_controlled_upstream_error():
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("too slow", request=request)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    registry = ToolRegistry()
+    OpenAIHostedTools(api_key="sk-test", http_client=client).register(registry)
+
+    async def exercise():
+        try:
+            with pytest.raises(UpstreamError, match="timed out") as raised:
+                await registry.execute("web_search", {"query": "https://example.com/article"}, Principal(id="alice"))
+            assert raised.value.status_code == 504
+        finally:
+            await client.aclose()
+
+    asyncio.run(exercise())

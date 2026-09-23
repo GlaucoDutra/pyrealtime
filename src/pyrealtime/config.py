@@ -85,6 +85,7 @@ class ServerSettings:
     cors_origins: tuple[str, ...] = ()
     allow_anonymous: bool = False
     request_timeout_seconds: float = 20.0
+    tool_timeout_seconds: float = 120.0
     realtime_model: str = "gpt-realtime-2.1-mini"
     realtime_voice: str = "marin"
     realtime_instructions: str = "You are a concise and helpful realtime assistant."
@@ -105,6 +106,7 @@ class ServerSettings:
             ),
             allow_anonymous=os.getenv("PYREALTIME_ALLOW_ANONYMOUS", "false").lower() in {"1", "true", "yes"},
             request_timeout_seconds=float(os.getenv("PYREALTIME_REQUEST_TIMEOUT_SECONDS", "20")),
+            tool_timeout_seconds=float(os.getenv("PYREALTIME_TOOL_TIMEOUT_SECONDS", "120")),
             realtime_model=os.getenv("PYREALTIME_MODEL", "gpt-realtime-2.1-mini").strip(),
             realtime_voice=os.getenv("PYREALTIME_VOICE", "marin").strip(),
             realtime_instructions=os.getenv(
