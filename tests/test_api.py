@@ -61,7 +61,7 @@ def test_token_requires_application_authentication_and_hashes_principal():
     assert authorized.status_code == 200
     assert authorized.json()["value"] == "ek_test"
     assert gateway.safety_identifier
-    assert gateway.config.model == "gpt-realtime-2.1"
+    assert gateway.config.model == "gpt-realtime-2.1-mini"
 
 
 def test_tool_uses_authenticated_principal():

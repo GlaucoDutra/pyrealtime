@@ -8,7 +8,7 @@ def test_session_payload_contains_audio_vad_and_transcription():
     session = config.to_session()
 
     assert session["type"] == "realtime"
-    assert session["model"] == "gpt-realtime-2.1"
+    assert session["model"] == "gpt-realtime-2.1-mini"
     assert session["audio"]["output"]["voice"] == "marin"
     assert session["audio"]["input"]["transcription"]["model"] == "gpt-4o-mini-transcribe"
     assert session["audio"]["input"]["turn_detection"]["interrupt_response"] is True

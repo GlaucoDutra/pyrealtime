@@ -11,7 +11,7 @@ from typing import Any, Mapping, Sequence
 class RealtimeSessionConfig:
     """Server-controlled configuration used to mint a browser client secret."""
 
-    model: str = "gpt-realtime-2.1"
+    model: str = "gpt-realtime-2.1-mini"
     voice: str = "marin"
     instructions: str = ""
     output_modalities: tuple[str, ...] = ("audio",)
@@ -85,7 +85,7 @@ class ServerSettings:
     cors_origins: tuple[str, ...] = ()
     allow_anonymous: bool = False
     request_timeout_seconds: float = 20.0
-    realtime_model: str = "gpt-realtime-2.1"
+    realtime_model: str = "gpt-realtime-2.1-mini"
     realtime_voice: str = "marin"
     realtime_instructions: str = "You are a concise and helpful realtime assistant."
 
@@ -102,7 +102,7 @@ class ServerSettings:
             ),
             allow_anonymous=os.getenv("PYREALTIME_ALLOW_ANONYMOUS", "false").lower() in {"1", "true", "yes"},
             request_timeout_seconds=float(os.getenv("PYREALTIME_REQUEST_TIMEOUT_SECONDS", "20")),
-            realtime_model=os.getenv("PYREALTIME_MODEL", "gpt-realtime-2.1").strip(),
+            realtime_model=os.getenv("PYREALTIME_MODEL", "gpt-realtime-2.1-mini").strip(),
             realtime_voice=os.getenv("PYREALTIME_VOICE", "marin").strip(),
             realtime_instructions=os.getenv(
                 "PYREALTIME_INSTRUCTIONS",

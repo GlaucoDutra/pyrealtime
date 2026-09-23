@@ -23,7 +23,7 @@ from pyrealtime import OpenAIRealtimeGateway, RealtimeSessionConfig
 async def main() -> None:
     gateway = OpenAIRealtimeGateway(api_key="sk-server-only")
     config = RealtimeSessionConfig(
-        model="gpt-realtime-2.1",
+        model="gpt-realtime-2.1-mini",
         voice="marin",
         instructions="You are a concise work assistant.",
     )
@@ -71,6 +71,8 @@ const token = await tokenResponse.json();
 ```
 
 `app_base_url` always means your application API. It is not the OpenAI endpoint and it is not tied to any hosting platform.
+
+The default model is `gpt-realtime-2.1-mini`, selected for substantially lower speech-to-speech cost while retaining WebRTC and function calling. Set `PYREALTIME_MODEL=gpt-realtime-2.1` when a deployment needs the larger model's stronger instruction following and tool use.
 
 ## Register tools
 
