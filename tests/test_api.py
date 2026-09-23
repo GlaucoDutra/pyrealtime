@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from pyrealtime import AttachmentProcessor, Principal, ServerSettings, ToolRegistry
 from pyrealtime.api import create_app
+from pyrealtime.exceptions import UpstreamError
 
 
 class FakeGateway:
@@ -18,6 +19,15 @@ class FakeGateway:
         self.config = config
         self.safety_identifier = safety_identifier
         return "answer-for:" + sdp_offer
+
+
+class RejectingGateway(FakeGateway):
+    async def create_client_secret(self, config, *, safety_identifier=None):
+        raise UpstreamError(
+            "OpenAI rejected the request",
+            status_code=401,
+            response_body='{"error":{"message":"Incorrect API key provided","code":"invalid_api_key"}}',
+        )
 
 
 def settings(**overrides):
@@ -117,3 +127,19 @@ def test_file_preparation_is_authenticated_and_reusable():
     assert prepared.status_code == 200
     assert prepared.json()["filename"] == "notes.txt"
     assert prepared.json()["chunks"] == ["hello"]
+
+
+def test_upstream_authentication_error_is_actionable_without_echoing_raw_body():
+    app = create_app(settings(), gateway=RejectingGateway())
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/realtime/token",
+            headers={"Authorization": "Bearer app-secret"},
+        )
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": "OpenAI rejected the API key. Enter a valid OpenAI project API key and restart the local prototype.",
+        "upstream_status": 401,
+        "upstream_code": "invalid_api_key",
+    }

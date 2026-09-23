@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import inspect
+import json
 import secrets
 from contextlib import asynccontextmanager
 from typing import Any, Awaitable, Callable, Mapping
@@ -21,6 +22,39 @@ from .principal import Principal
 from .tools import ToolRegistry
 
 Authenticator = Callable[[Request], Principal | Awaitable[Principal]]
+
+
+def _upstream_error_detail(exc: UpstreamError) -> tuple[str, str | None]:
+    """Return a safe, actionable error without leaking credentials or raw responses."""
+    code: str | None = None
+    upstream_message = ""
+    try:
+        payload = json.loads(exc.response_body)
+        error = payload.get("error", {}) if isinstance(payload, dict) else {}
+        if isinstance(error, dict):
+            upstream_message = str(error.get("message", "")).strip()
+            code = str(error.get("code", "")).strip() or None
+    except (TypeError, ValueError):
+        pass
+
+    if exc.status_code == 401:
+        return (
+            "OpenAI rejected the API key. Enter a valid OpenAI project API key and restart the local prototype.",
+            code,
+        )
+    if exc.status_code == 403:
+        return (
+            "The OpenAI project does not have permission to use this Realtime model.",
+            code,
+        )
+    if exc.status_code == 429:
+        return (
+            "OpenAI rate limits or project quota prevented creation of the Realtime session.",
+            code,
+        )
+    if exc.status_code == 400 and upstream_message:
+        return (f"OpenAI rejected the Realtime configuration: {upstream_message}", code)
+    return (str(exc), code)
 
 
 def _bearer_token(request: Request) -> str:
@@ -67,11 +101,13 @@ def create_app(
 
     @app.exception_handler(UpstreamError)
     async def upstream_error_handler(_: Request, exc: UpstreamError) -> JSONResponse:
+        detail, code = _upstream_error_detail(exc)
         return JSONResponse(
             status_code=502,
             content={
-                "detail": str(exc),
+                "detail": detail,
                 "upstream_status": exc.status_code or None,
+                "upstream_code": code,
             },
         )
 
