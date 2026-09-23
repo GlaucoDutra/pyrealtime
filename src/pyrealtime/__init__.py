@@ -12,6 +12,7 @@ from .exceptions import (
     UpstreamError,
 )
 from .gateway import OpenAIRealtimeGateway
+from .hosted_tools import OpenAIHostedTools
 from .principal import Principal
 from .tools import AppToolRouter, ToolDefinition, ToolRegistry
 
@@ -25,6 +26,7 @@ __all__ = [
     "AuthenticationError",
     "ConfigurationError",
     "OpenAIRealtimeGateway",
+    "OpenAIHostedTools",
     "Principal",
     "PreparedAttachment",
     "RealtimeSessionConfig",

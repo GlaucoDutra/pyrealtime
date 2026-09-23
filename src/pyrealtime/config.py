@@ -88,6 +88,9 @@ class ServerSettings:
     realtime_model: str = "gpt-realtime-2.1-mini"
     realtime_voice: str = "marin"
     realtime_instructions: str = "You are a concise and helpful realtime assistant."
+    tool_model: str = "gpt-5-mini"
+    image_model: str = "gpt-image-2.5-flare"
+    vector_store_ids: tuple[str, ...] = ()
 
     @classmethod
     def from_env(cls) -> "ServerSettings":
@@ -108,6 +111,13 @@ class ServerSettings:
                 "PYREALTIME_INSTRUCTIONS",
                 "You are a concise and helpful realtime assistant.",
             ).strip(),
+            tool_model=os.getenv("PYREALTIME_TOOL_MODEL", "gpt-5-mini").strip(),
+            image_model=os.getenv("PYREALTIME_IMAGE_MODEL", "gpt-image-2.5-flare").strip(),
+            vector_store_ids=tuple(
+                value.strip()
+                for value in os.getenv("PYREALTIME_VECTOR_STORE_IDS", "").split(",")
+                if value.strip()
+            ),
         )
 
     def session_config(self, *, tools: Sequence[Mapping[str, Any]] = ()) -> RealtimeSessionConfig:

@@ -11,11 +11,18 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from pyrealtime import AttachmentProcessor, Principal, ServerSettings, ToolRegistry
+from pyrealtime import AttachmentProcessor, OpenAIHostedTools, Principal, ServerSettings, ToolRegistry
 from pyrealtime.api import create_app
 
 settings = ServerSettings.from_env()
 tools = ToolRegistry()
+OpenAIHostedTools(
+    api_key=settings.openai_api_key,
+    response_model=settings.tool_model,
+    image_model=settings.image_model,
+    vector_store_ids=settings.vector_store_ids,
+    timeout=settings.request_timeout_seconds,
+).register(tools)
 _notes: dict[str, list[str]] = {}
 _notes_lock = asyncio.Lock()
 

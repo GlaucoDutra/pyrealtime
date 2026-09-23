@@ -104,6 +104,31 @@ async def create_task(arguments, principal):
 
 Tool arguments are model-generated input, not authorization. Every handler must derive ownership and permissions from the authenticated `Principal`.
 
+## Built-in OpenAI hosted tools
+
+`OpenAIHostedTools` registers reusable server-side tools that use the same private `OPENAI_API_KEY` as the Realtime gateway. The browser does not need an OpenAI key or a custom search endpoint.
+
+```python
+from pyrealtime import OpenAIHostedTools, ToolRegistry
+
+tools = ToolRegistry()
+OpenAIHostedTools(
+    api_key=settings.openai_api_key,
+    response_model=settings.tool_model,
+    image_model=settings.image_model,
+    vector_store_ids=settings.vector_store_ids,
+).register(tools)
+```
+
+This registers:
+
+- `web_search`, backed by OpenAI's hosted web search
+- `backend_openai_call`, for private text classification, extraction, and planning
+- `generate_image`, returning a browser-ready image data URI
+- `file_search`, backed by OpenAI's hosted file search when at least one vector store is configured
+
+No application-specific executor URL is required. Web search works immediately. File search needs a knowledge base, so configure existing OpenAI vector stores as a comma-separated list in `PYREALTIME_VECTOR_STORE_IDS`; the tool is omitted when the list is empty. Use `PYREALTIME_TOOL_MODEL` and `PYREALTIME_IMAGE_MODEL` to override the inexpensive defaults.
+
 ## Application authentication
 
 `create_app` accepts a custom asynchronous authentication callback. In production, use it to verify your application's user session or JWT and return a stable internal user ID. If no callback is supplied, `APP_API_KEY` enables a simple bearer-key mode intended for private integrations and development.
