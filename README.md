@@ -4,13 +4,15 @@
 
 The backend keeps the standard OpenAI API key private, creates short-lived client secrets, executes application tools, and exposes an optional FastAPI surface. The browser continues to own microphone capture, remote audio playback, the WebRTC peer connection, and the Three.js avatar.
 
+For an end-to-end quickstart, environment reference, endpoint contracts, authentication examples, hosted-tool usage, production checklist, and troubleshooting, read the [complete usage guide](docs/LLM_USAGE.md). It is written as the canonical reference for both humans and coding agents.
+
 ## Install
 
 ```bash
 python -m pip install -e ".[api,dev,files]"
 ```
 
-Copy `.env.example` into your deployment environment and set `OPENAI_API_KEY`. Never expose that value in frontend code.
+Use `.env.example` as a deployment-variable template and set `OPENAI_API_KEY`. `ServerSettings.from_env()` reads the process environment; it does not load `.env` files automatically. Never expose the OpenAI key in frontend code.
 
 ## Core library
 
