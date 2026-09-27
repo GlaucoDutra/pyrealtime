@@ -25,9 +25,14 @@ def test_server_settings_load_hosted_tool_configuration(monkeypatch):
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setenv("PYREALTIME_VECTOR_STORE_IDS", "vs_one, vs_two")
+    monkeypatch.setenv("PYREALTIME_CHAT_RATE_LIMIT", "12")
+    monkeypatch.setenv("PYREALTIME_MAX_CHAT_HISTORY_MESSAGES", "8")
     settings = ServerSettings.from_env()
 
     assert settings.tool_model == "gpt-5-mini"
     assert settings.tool_timeout_seconds == 120.0
     assert settings.image_model == "gpt-image-2.5-flare"
     assert settings.vector_store_ids == ("vs_one", "vs_two")
+    assert settings.chat_model == "gpt-5-mini"
+    assert settings.chat_rate_limit == 12
+    assert settings.max_chat_history_messages == 8

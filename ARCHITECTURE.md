@@ -9,6 +9,7 @@ PyRealtime is the reusable application layer. A capability belongs here when it 
 | Tool schemas, execution, and permission checks | Rendering and device-local tools, such as avatar animation |
 | File validation, extraction, normalization, limits, and chunking | File picker, preview, upload progress, and Realtime event dispatch |
 | Stable transport-neutral response models | Presentation and platform-specific state |
+| Provider-neutral chat request/response and bounded tool loop | Conversation UI and local history persistence |
 
 Host-owned extension contracts keep product policy out of the core:
 
@@ -17,6 +18,7 @@ Host-owned extension contracts keep product policy out of the core:
 - `UsageSink` receives neutral usage events; pricing, quotas, and billing remain app-specific.
 - `AttachmentStore` optionally persists prepared results.
 - `VectorStoreResolver` maps an authenticated principal to allowed search stores.
+- `ChatBackend` replaces the provider adapter without changing `/v1/chat`.
 
 The reusable browser WebRTC/event implementation lives in the separate `@glaucodutra/pyrealtime-client` package. Its DOM and Three.js reference UI are not part of the Python library.
 

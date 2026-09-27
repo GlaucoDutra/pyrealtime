@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyrealtime-ai"
-version = "0.2.0"
-description = "Framework-neutral Python backend toolkit for browser-based OpenAI Realtime applications."
+version = "0.2.1"
+description = "Client-neutral Python backend toolkit for authenticated chat and OpenAI Realtime applications."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Simple Desenvolvedores" }]
@@ -22,7 +22,11 @@ classifiers = [
 ]
 dependencies = [
   "httpx>=0.27,<1",
+  "pydantic>=2.9,<3",
 ]
+
+[project.scripts]
+pyrealtime-example = "pyrealtime.example_app:main"
 
 [project.optional-dependencies]
 api = [
@@ -42,6 +46,7 @@ auth = [
 dev = [
   "build>=1.2,<2",
   "pytest>=8,<10",
+  "pytest-asyncio>=0.24,<2",
   "twine>=6,<7",
 ]
 

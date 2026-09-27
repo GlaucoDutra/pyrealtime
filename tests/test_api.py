@@ -1,6 +1,8 @@
+import asyncio
+
 from fastapi.testclient import TestClient
 
-from pyrealtime import AttachmentProcessor, HostHooks, Principal, ServerSettings, ToolRegistry
+from pyrealtime import ChatMessage, ChatResponse, ChatUsage, AttachmentProcessor, HostHooks, Principal, ServerSettings, ToolRegistry
 from pyrealtime.api import create_app
 from pyrealtime.exceptions import UpstreamError
 
@@ -27,6 +29,19 @@ class RejectingGateway(FakeGateway):
             "OpenAI rejected the request",
             status_code=401,
             response_body='{"error":{"message":"Incorrect API key provided","code":"invalid_api_key"}}',
+        )
+
+
+class FakeChatBackend:
+    def __init__(self):
+        self.principal = None
+
+    async def complete(self, request, *, principal, tools, authorize_tool):
+        del tools, authorize_tool
+        self.principal = principal
+        return ChatResponse(
+            message=ChatMessage(role="assistant", content=f"Reply to: {request.message}"),
+            usage=ChatUsage(input_tokens=3, output_tokens=2, total_tokens=5),
         )
 
 
@@ -222,3 +237,137 @@ def test_attachment_store_and_lifecycle_are_optional_extensions():
         )
     assert response.json()["storage"]["id"] == "app-api-key:notes.txt"
     assert events == ["file.prepare.started", "file.prepare.completed"]
+
+
+def test_chat_contract_is_authenticated_bounded_and_provider_neutral():
+    backend = FakeChatBackend()
+    app = create_app(
+        settings(max_chat_message_chars=10),
+        chat_backend=backend,
+        gateway=FakeGateway(),
+    )
+    with TestClient(app) as client:
+        unauthorized = client.post("/v1/chat", json={"message": "hello"})
+        response = client.post(
+            "/v1/chat",
+            headers={"Authorization": "Bearer app-secret", "X-Request-ID": "chat-request"},
+            json={"message": "hello", "history": [{"role": "assistant", "content": "Welcome"}]},
+        )
+        invalid = client.post(
+            "/v1/chat",
+            headers={"Authorization": "Bearer app-secret"},
+            json={"message": "this is too long"},
+        )
+
+    assert unauthorized.status_code == 401
+    assert unauthorized.json()["error"]["code"] == "unauthorized"
+    assert response.status_code == 200
+    assert response.headers["x-request-id"] == "chat-request"
+    assert response.json() == {
+        "message": {"role": "assistant", "content": "Reply to: hello"},
+        "tool_calls": [],
+        "usage": {"input_tokens": 3, "output_tokens": 2, "total_tokens": 5},
+    }
+    assert backend.principal.id == "app-api-key"
+    assert invalid.status_code == 400
+    assert invalid.json()["error"]["code"] == "invalid_request"
+
+
+def test_chat_authorization_fails_before_backend_execution():
+    backend = FakeChatBackend()
+
+    async def deny(_, authorization):
+        return authorization.action != "chat.complete"
+
+    app = create_app(
+        settings(),
+        host=HostHooks(authorize=deny),
+        chat_backend=backend,
+        gateway=FakeGateway(),
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat",
+            headers={"Authorization": "Bearer app-secret"},
+            json={"message": "hello"},
+        )
+
+    assert response.status_code == 403
+    assert backend.principal is None
+
+
+def test_chat_has_an_overall_timeout():
+    class SlowChatBackend:
+        async def complete(self, request, *, principal, tools, authorize_tool):
+            await asyncio.sleep(0.05)
+            return ChatResponse(message=ChatMessage(role="assistant", content="too late"))
+
+    app = create_app(
+        settings(chat_timeout_seconds=0.001),
+        chat_backend=SlowChatBackend(),
+        gateway=FakeGateway(),
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat",
+            headers={"Authorization": "Bearer app-secret"},
+            json={"message": "hello"},
+        )
+
+    assert response.status_code == 504
+    assert response.json()["error"]["code"] == "chat_timeout"
+
+
+def test_chat_fails_closed_when_authentication_is_not_configured():
+    app = create_app(
+        settings(app_api_key=None),
+        chat_backend=FakeChatBackend(),
+        gateway=FakeGateway(),
+    )
+    with TestClient(app) as client:
+        response = client.post("/v1/chat", json={"message": "hello"})
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "authentication_unavailable"
+
+
+def test_direct_tool_execution_obeys_timeout():
+    tools = ToolRegistry()
+
+    @tools.tool(name="slow", description="Slow", parameters={"type": "object", "properties": {}})
+    async def slow(_, __):
+        await asyncio.sleep(0.05)
+        return {"ok": True}
+
+    app = create_app(
+        settings(tool_timeout_seconds=0.001),
+        tools=tools,
+        chat_backend=FakeChatBackend(),
+        gateway=FakeGateway(),
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/tools/slow",
+            headers={"Authorization": "Bearer app-secret"},
+            json={},
+        )
+    assert response.status_code == 504
+
+
+def test_custom_chat_backend_can_run_without_openai_or_realtime():
+    app = create_app(
+        settings(openai_api_key=""),
+        chat_backend=FakeChatBackend(),
+        enable_realtime=False,
+    )
+    with TestClient(app) as client:
+        chat = client.post(
+            "/v1/chat",
+            headers={"Authorization": "Bearer app-secret"},
+            json={"message": "hello"},
+        )
+        realtime = client.post(
+            "/v1/realtime/token",
+            headers={"Authorization": "Bearer app-secret"},
+        )
+    assert chat.status_code == 200
+    assert realtime.status_code == 404

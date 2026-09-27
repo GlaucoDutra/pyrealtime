@@ -26,8 +26,8 @@ class OpenAIRealtimeGateway:
             raise ConfigurationError("OPENAI_API_KEY is required")
         self._api_key = api_key.strip()
         self._base_url = base_url.rstrip("/")
-        self._owns_client = http_client is None
-        self._client = http_client or httpx.AsyncClient(timeout=timeout)
+        self._client = http_client
+        self._timeout = timeout
 
     def _headers(self, safety_identifier: str | None = None) -> dict[str, str]:
         headers = {
@@ -43,8 +43,8 @@ class OpenAIRealtimeGateway:
         *,
         safety_identifier: str | None = None,
     ) -> dict[str, Any]:
-        response = await self._client.post(
-            f"{self._base_url}/v1/realtime/client_secrets",
+        response = await self._post(
+            "/v1/realtime/client_secrets",
             headers={**self._headers(safety_identifier), "Content-Type": "application/json"},
             json=config.to_client_secret_payload(),
         )
@@ -63,8 +63,8 @@ class OpenAIRealtimeGateway:
     ) -> str:
         if not sdp_offer.strip():
             raise ValueError("sdp_offer cannot be empty")
-        response = await self._client.post(
-            f"{self._base_url}/v1/realtime/calls",
+        response = await self._post(
+            "/v1/realtime/calls",
             headers=self._headers(safety_identifier),
             files={
                 "sdp": (None, sdp_offer, "application/sdp"),
@@ -74,6 +74,12 @@ class OpenAIRealtimeGateway:
         self._raise_for_status(response, "OpenAI rejected the WebRTC session request")
         return response.text
 
+    async def _post(self, path: str, **kwargs: Any) -> httpx.Response:
+        if self._client is not None:
+            return await self._client.post(f"{self._base_url}{path}", **kwargs)
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            return await client.post(f"{self._base_url}{path}", **kwargs)
+
     @staticmethod
     def _raise_for_status(response: httpx.Response, message: str) -> None:
         if response.is_success:
@@ -82,8 +88,8 @@ class OpenAIRealtimeGateway:
         raise UpstreamError(message, status_code=response.status_code, response_body=body)
 
     async def aclose(self) -> None:
-        if self._owns_client:
-            await self._client.aclose()
+        # Injected clients are host-owned; default calls use short-lived clients.
+        return None
 
     async def __aenter__(self) -> "OpenAIRealtimeGateway":
         return self

@@ -1,221 +1,119 @@
-# PyRealtime complete usage guide
+# PyRealtime 0.2.1 complete usage guide
 
-This document is the canonical operating guide for humans and language models that need to install, run, integrate, extend, or troubleshoot PyRealtime.
+This is the canonical reference for humans and language models integrating `pyrealtime-ai`. The README is the quick start; when they differ, this file defines the intended public contract for release `v0.2.1`.
 
-## 1. What PyRealtime is
+## 1. Definition of drop-in
 
-PyRealtime is a Python library and optional FastAPI application for browser-based OpenAI Realtime applications.
+A new, unrelated application can use PyRealtime without cloning its source or using another repository. The host must provide only:
 
-It owns reusable server responsibilities:
+1. Python 3.10, 3.11, 3.12, or 3.13.
+2. The pinned wheel and appropriate extras.
+3. A server-side OpenAI API key when using the default OpenAI chat or Realtime adapters.
+4. Authentication: a local shared key, a callback returning `Principal`, or `JWTAuthenticator`.
+5. Any application tools and their authorization rules.
 
-- Keeping the standard `OPENAI_API_KEY` private.
-- Creating OpenAI Realtime sessions.
-- Authenticating application users.
-- Publishing tool schemas and executing backend tools.
-- Calling OpenAI hosted tools through the Responses and Images APIs.
-- Validating, extracting, normalizing, and chunking uploaded files.
+The host retains user accounts, databases, tenant/company policy, billing, quotas, UI, and deployment. PyRealtime does not require Supabase or any other database/identity vendor.
 
-It does not own browser responsibilities:
+## 2. Installation and package identity
 
-- Microphone capture.
-- WebRTC peer connections in the browser.
-- Remote audio playback.
-- DOM rendering.
-- Three.js avatars and device-local actions.
-
-The reference browser implementation is [pyrealtime-web](https://github.com/GlaucoDutra/pyrealtime-web). Read its `docs/LLM_USAGE.md` for frontend integration.
-
-## 2. Repository contract
-
-The public Python package is in `src/pyrealtime`.
-
-| Path | Purpose |
-| --- | --- |
-| `src/pyrealtime/config.py` | Realtime session and server configuration |
-| `src/pyrealtime/gateway.py` | OpenAI Realtime HTTP/WebRTC gateway |
-| `src/pyrealtime/api.py` | Optional FastAPI application factory |
-| `src/pyrealtime/tools.py` | Tool schemas, registry, execution, and application routing |
-| `src/pyrealtime/hosted_tools.py` | Web search, file search, image generation, and single backend model calls |
-| `src/pyrealtime/attachments.py` | Reusable file validation and extraction |
-| `examples/prototype_server.py` | Complete local demonstration server |
-| `examples/api_server.py` | Minimal integration server |
-
-Do not place DOM, microphone, WebRTC rendering, or Three.js logic in this repository. Follow `ARCHITECTURE.md`.
-
-## 3. Fastest complete local setup
-
-The easiest Windows setup uses both repositories as sibling directories:
-
-```text
-parent-directory/
-  pyrealtime/
-  pyrealtime-web/
-```
-
-Clone them:
-
-```powershell
-git clone https://github.com/GlaucoDutra/pyrealtime.git
-git clone https://github.com/GlaucoDutra/pyrealtime-web.git
-cd pyrealtime-web
-.\scripts\run-local.ps1
-```
-
-The launcher:
-
-1. Securely prompts for `OPENAI_API_KEY` when it is not already set.
-2. Creates `.venv-prototype` inside `pyrealtime-web`.
-3. Installs the local PyRealtime package.
-4. Starts the backend at `http://127.0.0.1:8000`.
-5. Starts the frontend at `http://127.0.0.1:5173`.
-6. Opens the browser.
-7. Stops both owned processes when Enter is pressed in the launcher window.
-
-The local launcher enables anonymous access only for the local prototype. Do not copy that authentication mode into a public deployment.
-
-## 4. Manual backend setup
-
-Requirements:
-
-- Python 3.10 through 3.13.
-- An OpenAI project API key with access to the configured models.
-
-Install the pinned GitHub release without cloning the source:
+- Distribution: `pyrealtime-ai`
+- Import: `pyrealtime`
+- Current release: `0.2.1`
+- Supported Python: 3.10–3.13
+- License: MIT
+- PyPI status: pending; no matching `pyrealtime-ai` distribution was available when 0.2.1 was prepared.
+- Supported installation today: immutable GitHub release artifact.
 
 ```bash
 python -m venv .venv
-python -m pip install "pyrealtime-ai[api,auth,files] @ https://github.com/GlaucoDutra/pyrealtime/releases/download/v0.2.0/pyrealtime_ai-0.2.0-py3-none-any.whl"
+python -m pip install "pyrealtime-ai[api,auth] @ https://github.com/GlaucoDutra/pyrealtime/releases/download/v0.2.1/pyrealtime_ai-0.2.1-py3-none-any.whl"
 ```
 
-After the PyPI trusted publisher is enabled, the equivalent command is:
+Extras:
 
-```bash
-python -m pip install "pyrealtime-ai[api,auth,files]==0.2.0"
-```
+| Extra | Adds | Use when |
+| --- | --- | --- |
+| `api` | FastAPI and Uvicorn | Exposing or mounting the HTTP API |
+| `auth` | PyJWT and cryptography | Validating HMAC or JWKS JWTs |
+| `files` | PDF, Office, spreadsheet, and image parsers | Enabling `/v1/files/prepare` |
+| `dev` | Tests, build, and package inspection | Contributing from a source checkout |
 
-For contributors installing from a clone:
+Do not use `pip install pyrealtime`: that is a different, older project. Do not claim PyPI availability until `pip index versions pyrealtime-ai` returns the released version.
 
-```bash
-python -m venv .venv
-```
-
-Activate on PowerShell:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[api,auth,files,dev]"
-```
-
-Activate on macOS or Linux:
-
-```bash
-source .venv/bin/activate
-python -m pip install -e ".[api,auth,files,dev]"
-```
-
-`ServerSettings.from_env()` reads process environment variables. It does not load `.env` files itself. Export variables in the shell, use your platform's secret manager, or load a `.env` file in your host application before calling `ServerSettings.from_env()`.
-
-PowerShell example:
-
-```powershell
-$env:OPENAI_API_KEY = "sk-your-server-key"
-$env:APP_API_KEY = "local-development-token"
-$env:APP_CORS_ORIGINS = "http://127.0.0.1:5173"
-python -m uvicorn examples.prototype_server:app --host 127.0.0.1 --port 8000
-```
-
-macOS/Linux example:
-
-```bash
-export OPENAI_API_KEY="sk-your-server-key"
-export APP_API_KEY="local-development-token"
-export APP_CORS_ORIGINS="http://127.0.0.1:5173"
-python -m uvicorn examples.prototype_server:app --host 127.0.0.1 --port 8000
-```
-
-Verify the server:
-
-```bash
-curl http://127.0.0.1:8000/v1/health
-```
-
-Expected response:
-
-```json
-{"status":"ok","service":"pyrealtime","version":"0.2.0"}
-```
-
-Interactive FastAPI documentation is available at `http://127.0.0.1:8000/docs` while the example server is running.
-
-## 5. Environment variables
-
-| Variable | Required | Default | Meaning |
-| --- | --- | --- | --- |
-| `OPENAI_API_KEY` | Yes | Empty | Standard OpenAI key. Server only. |
-| `APP_API_KEY` | Production auth or custom callback | Empty | Shared bearer token for private development integrations. |
-| `APP_CORS_ORIGINS` | For browser clients | Empty | Comma-separated exact frontend origins. |
-| `APP_BASE_URL` | No | `http://localhost:8000` | Application API identity/configuration value; not the OpenAI URL. |
-| `PYREALTIME_ALLOW_ANONYMOUS` | No | `false` | Allows unauthenticated API calls. Local prototypes only. |
-| `PYREALTIME_MODEL` | No | `gpt-realtime-2.1-mini` | Realtime session model. |
-| `PYREALTIME_VOICE` | No | `marin` | Realtime output voice. |
-| `PYREALTIME_INSTRUCTIONS` | No | Concise assistant prompt | Initial Realtime instructions. |
-| `PYREALTIME_REQUEST_TIMEOUT_SECONDS` | No | `20` | Realtime REST/session setup timeout. |
-| `PYREALTIME_TOOL_MODEL` | No | `gpt-5-mini` | Responses API model for server-side tools. |
-| `PYREALTIME_TOOL_TIMEOUT_SECONDS` | No | `120` | Timeout for searches and other hosted tools. |
-| `PYREALTIME_IMAGE_MODEL` | No | `gpt-image-2.5-flare` | Image generation model. |
-| `PYREALTIME_VECTOR_STORE_IDS` | No | Empty | Comma-separated OpenAI vector store IDs. Enables `file_search`. |
-| `PYREALTIME_MAX_SDP_BYTES` | No | `1000000` | Maximum unified WebRTC SDP request body. |
-| `PYREALTIME_MAX_TOOL_REQUEST_BYTES` | No | `64000` | Maximum JSON body for one tool call. |
-| `PYREALTIME_SESSION_RATE_LIMIT` | No | `10` | Session/token requests per principal per window; `0` disables. |
-| `PYREALTIME_TOOL_RATE_LIMIT` | No | `60` | Tool calls per principal per window; `0` disables. |
-| `PYREALTIME_FILE_RATE_LIMIT` | No | `10` | File preparations per principal per window; `0` disables. |
-| `PYREALTIME_RATE_LIMIT_WINDOW_SECONDS` | No | `60` | Window used by all built-in rate limits. |
-| `PYREALTIME_REQUEST_ID_HEADER` | No | `X-Request-ID` | Correlation header accepted and returned by the API. |
-| `PYREALTIME_JSON_LOGS` | No | `true` | Emits structured request logs without headers or bodies. |
-
-Never place `OPENAI_API_KEY` in browser code, `VITE_*` variables, local storage, or a public repository.
-
-## 6. Authentication modes
-
-Every endpoint except `/v1/health` resolves a `Principal`.
-
-### Shared bearer token
-
-Set `APP_API_KEY`, then send:
-
-```http
-Authorization: Bearer local-development-token
-```
-
-This mode maps every valid request to the same principal and is intended for development or private single-tenant integrations.
-
-### Application authentication callback
-
-Use a callback for production:
+## 3. Smallest standalone integration
 
 ```python
-from fastapi import HTTPException, Request
 from pyrealtime import Principal, ServerSettings, ToolRegistry
 from pyrealtime.api import create_app
 
+settings = ServerSettings(
+    openai_api_key="server-secret",
+    app_api_key="local-app-token",
+    cors_origins=("http://localhost:3000",),
+)
+tools = ToolRegistry()
 
-async def authenticate(request: Request) -> Principal:
-    token = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
-    user = await verify_your_jwt_and_load_user(token)
-    if user is None:
-        raise HTTPException(status_code=401, detail="Invalid user session")
-    return Principal(id=str(user.id), claims={"plan": user.plan})
+@tools.tool(
+    name="get_status",
+    description="Return the current service status.",
+    parameters={"type": "object", "properties": {}, "additionalProperties": False},
+)
+async def get_status(arguments, principal: Principal):
+    return {"status": "ready", "principal_id": principal.id}
 
-
-settings = ServerSettings.from_env()
-app = create_app(settings, tools=ToolRegistry(), authenticate=authenticate)
+app = create_app(settings, tools=tools)
 ```
 
-The callback must verify identity. Model-generated tool arguments are never authorization evidence. Tool handlers must derive ownership and permissions from `principal`.
+Run:
 
-### Reference JWT adapters and host policy hooks
+```bash
+uvicorn your_module:app --host 127.0.0.1 --port 8000
+```
 
-Install the `auth` extra and use `JWTAuthenticator` with either a shared HS256 secret or a JWKS URL. Always configure an explicit algorithm, audience, and issuer. `HostHooks.authorize` receives a typed `AuthorizationRequest` before session creation, tool execution, or file preparation. `HostHooks.on_lifecycle` observes started/completed events without receiving prompt, token, or file content.
+`APP_API_KEY` maps every valid request to the same development principal. It is suitable for local or private single-identity testing, not public multi-user login.
+
+## 4. Mounting into an existing ASGI application
+
+`mount_py_realtime` mounts a self-contained FastAPI sub-application. This preserves request IDs, CORS, error handlers, docs, and limits without changing the host's middleware.
+
+```python
+from fastapi import FastAPI, HTTPException, Request
+from pyrealtime import Principal, ServerSettings, ToolRegistry
+from pyrealtime.api import mount_py_realtime
+
+app = FastAPI()
+tools = ToolRegistry()
+
+async def authenticate(request: Request) -> Principal:
+    session = await your_identity_service.verify(request.headers.get("authorization", ""))
+    if session is None:
+        raise HTTPException(status_code=401, detail="Invalid session")
+    return Principal(id=str(session.user_id), claims={"roles": session.roles})
+
+pyrealtime_app = mount_py_realtime(
+    app,
+    ServerSettings.from_env(),
+    path="/ai",
+    tools=tools,
+    authenticate=authenticate,
+)
+```
+
+The resulting API is `/ai/v1/...` and its OpenAPI UI is `/ai/docs`. The path must be a non-root absolute path. Use `create_app` when PyRealtime itself is the standalone ASGI application.
+
+Chat and Realtime are enabled by default. Set `enable_chat=False` or `enable_realtime=False` to omit either route group. A host using a custom `ChatBackend` with `enable_realtime=False` does not need an OpenAI key; direct tools also work with both provider capabilities disabled.
+
+Default network adapters create short-lived HTTP clients and are safe in a mounted child application. An injected HTTP client, gateway, or backend is host-owned and must be closed by the host lifespan.
+
+## 5. Authentication, authorization, and lifecycle
+
+Every route except health resolves a `Principal` and fails closed:
+
+- Custom `authenticate(request)` callback: recommended for an existing app.
+- `JWTAuthenticator`: validates an explicit algorithm, audience, issuer, and either a shared secret or JWKS URL.
+- `APP_API_KEY`: development/private integration fallback.
+- Anonymous: disabled unless `PYREALTIME_ALLOW_ANONYMOUS=true`; use only in controlled prototypes.
+- No configured mode: protected routes return `503`.
 
 ```python
 from pyrealtime import HostHooks, JWTAuthenticator
@@ -223,7 +121,7 @@ from pyrealtime import HostHooks, JWTAuthenticator
 authenticate = JWTAuthenticator(
     algorithms=("RS256",),
     jwks_url="https://identity.example.com/.well-known/jwks.json",
-    audience="realtime-api",
+    audience="my-api",
     issuer="https://identity.example.com/",
 )
 
@@ -232,314 +130,231 @@ async def authorize(principal, request):
         return request.resource in principal.claims.get("allowed_tools", [])
     return True
 
-app = create_app(settings, authenticate=authenticate, host=HostHooks(authorize=authorize))
+hooks = HostHooks(authorize=authorize, on_lifecycle=record_safe_event)
 ```
 
-See `examples/jwt_host_server.py` for a complete second host with its own JWT, authorization rule, and tool. Run it with `uvicorn examples.jwt_host_server:build_app --factory` after setting `OPENAI_API_KEY`, `EXAMPLE_JWT_SECRET`, and CORS.
+Authorization actions are:
 
-### Anonymous mode
+| Action | Resource |
+| --- | --- |
+| `chat.complete` | `None` |
+| `realtime.session` | `None` |
+| `tool.execute` | Tool name |
+| `file.prepare` | `None` |
 
-`PYREALTIME_ALLOW_ANONYMOUS=true` exists only for controlled local prototypes. It maps all requests to one anonymous principal.
+Chat-triggered tools are authorized again with `tool.execute` immediately before execution. Model arguments never establish authorization.
 
-## 7. HTTP API contract
+Lifecycle events contain request ID, principal ID, event name, and small operational metadata—not prompts, tokens, tool arguments/results, or file contents.
 
-All protected examples below may require:
+## 6. Chat API
 
-```http
-Authorization: Bearer <application-token-or-user-JWT>
+### Request
+
+`POST /v1/chat`, `Content-Type: application/json`:
+
+```json
+{
+  "message": "What is my service status?",
+  "history": [
+    {"role": "user", "content": "Hello"},
+    {"role": "assistant", "content": "How can I help?"}
+  ]
+}
 ```
 
-### `GET /v1/health`
+The request is provider-neutral. Roles are `user` or `assistant`; system/developer instructions are controlled by the server. Clients send bounded replayable history, not provider response IDs or raw provider output items.
 
-No authentication. Returns server health only; it does not validate the OpenAI key.
+### Response
 
-### `POST /v1/realtime/session`
-
-This is the path used by `pyrealtime-web`. The browser sends its SDP offer to PyRealtime, and PyRealtime sends the configured session plus SDP to OpenAI using the standard server key.
-
-Request:
-
-```http
-Content-Type: application/sdp
-
-v=0
-...browser SDP offer...
+```json
+{
+  "message": {"role": "assistant", "content": "The service is ready."},
+  "tool_calls": [
+    {
+      "id": "call_123",
+      "name": "get_status",
+      "arguments": {},
+      "status": "completed",
+      "result": {"status": "ready"},
+      "error": null
+    }
+  ],
+  "usage": {"input_tokens": 42, "output_tokens": 12, "total_tokens": 54}
+}
 ```
 
-Successful response:
+`usage` may be `null` for a custom provider that does not report counts. Tool failures use `status: "failed"` and a bounded, non-sensitive error code such as `tool_timeout`; raw exceptions are not returned.
 
-```http
-Content-Type: application/sdp
+### Error envelope
 
-v=0
-...OpenAI SDP answer...
+Chat errors use one stable envelope and include the same request ID returned in the response header:
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "message exceeds the configured character limit",
+    "request_id": "7f5..."
+  }
+}
 ```
 
-Use this unified path when you want the browser to talk only to your application backend during session creation.
+Expected codes include `unauthorized`, `forbidden`, `invalid_request`, `request_too_large`, `rate_limited`, `provider_error`, `provider_timeout`, `chat_timeout`, and `tool_round_limit`. Honor `Retry-After` on `429`.
 
-### `POST /v1/realtime/token`
+The default `OpenAIResponsesChatBackend` uses the Responses API internally, sends `store: false`, executes only registered application tools, and runs a bounded tool loop. A host can inject any object implementing `ChatBackend`; the HTTP schema does not change.
 
-Creates a short-lived Realtime client secret and returns OpenAI's JSON response. Use it only with a frontend that implements the ephemeral-token connection flow. The reference frontend currently uses `/v1/realtime/session`, not this endpoint.
+## 7. Other HTTP routes
 
-Both WebRTC approaches are supported by the official OpenAI documentation: [unified interface and ephemeral token](https://developers.openai.com/api/docs/guides/voice-webrtc).
+| Route | Purpose |
+| --- | --- |
+| `GET /v1/health` | Public process health and package version; does not validate provider credentials |
+| `POST /v1/realtime/token` | Short-lived Realtime client secret |
+| `POST /v1/realtime/session` | Unified SDP exchange for browser WebRTC |
+| `POST /v1/tools/{tool_name}` | Direct execution of one registered tool |
+| `POST /v1/files/prepare` | Optional authenticated attachment preparation |
 
-### `POST /v1/tools/{tool_name}`
+Realtime routes expose the provider's SDP/token transport because those are protocol endpoints. `/v1/chat` deliberately does not expose provider response objects.
 
-Executes a registered backend tool for the authenticated principal.
+## 8. Tools
 
-Request:
-
-```bash
-curl -X POST http://127.0.0.1:8000/v1/tools/backend_openai_call \
-  -H "Authorization: Bearer local-development-token" \
-  -H "Content-Type: application/json" \
-  -d '{"input":"Invoice total: 42.50","instructions":"Extract the total as JSON."}'
-```
-
-The JSON request body is the tool arguments object. The response is the handler's JSON-compatible result.
-
-Possible statuses:
-
-- `200`: tool completed.
-- `400`: handler rejected invalid arguments.
-- `401`: application authentication failed.
-- `404`: tool is not registered.
-- `413`: request exceeds the configured body limit.
-- `429`: the principal exceeded the configured rate limit; honor `Retry-After`.
-- `502`: OpenAI or another upstream service rejected or timed out.
-
-Every response includes `X-Request-ID` (or the configured header). A safe caller-provided ID is preserved; otherwise PyRealtime generates one.
-
-### `POST /v1/files/prepare`
-
-Available only when `create_app(..., attachments=AttachmentProcessor())` is used.
-
-Headers:
-
-```http
-Content-Type: <actual file MIME type>
-X-Filename: <URL-encoded filename>
-Authorization: Bearer <token>
-```
-
-The raw file bytes are the request body. The response is one of:
-
-- `kind: "image"` with a normalized `data_url`.
-- `kind: "text"` with extracted `chunks` and a `truncated` flag.
-- `kind: "notice"` with an honest unsupported-format message.
-
-Default limits are defined by `AttachmentPolicy`: 25 MB input, 120,000 extracted characters, 8,000 characters per chunk, 1,024-pixel image dimensions, 250 document pages, and 100,000 spreadsheet cells.
-
-Preparation is stateless by default. Pass `attachment_store=` with an object implementing `async save(principal_id, attachment)` to add host-controlled persistence; its returned reference appears under `storage`.
-
-## 8. Creating a complete API application
+Register only server-owned schemas:
 
 ```python
-from pyrealtime import (
-    AttachmentProcessor,
-    OpenAIHostedTools,
-    Principal,
-    ServerSettings,
-    ToolRegistry,
-)
-from pyrealtime.api import create_app
-
-settings = ServerSettings.from_env()
 tools = ToolRegistry()
 
-OpenAIHostedTools(
-    api_key=settings.openai_api_key,
-    response_model=settings.tool_model,
-    image_model=settings.image_model,
-    vector_store_ids=settings.vector_store_ids,
-    timeout=settings.tool_timeout_seconds,
-).register(tools)
-
-
 @tools.tool(
-    name="task_create",
-    description="Create a task for the authenticated user.",
+    name="lookup_order",
+    description="Look up an order owned by the authenticated user.",
     parameters={
         "type": "object",
-        "properties": {
-            "title": {"type": "string", "minLength": 1, "maxLength": 200}
-        },
-        "required": ["title"],
+        "properties": {"order_id": {"type": "string"}},
+        "required": ["order_id"],
         "additionalProperties": False,
     },
 )
-async def task_create(arguments, principal: Principal):
-    title = str(arguments.get("title", "")).strip()
-    if not title:
-        raise ValueError("title is required")
-    task = await your_database.create_task(owner_id=principal.id, title=title)
-    return {"ok": True, "task_id": str(task.id), "title": task.title}
-
-
-app = create_app(
-    settings,
-    tools=tools,
-    attachments=AttachmentProcessor(),
-)
+async def lookup_order(arguments, principal):
+    return await database.orders.for_owner(principal.id, arguments["order_id"])
 ```
 
-`create_app` also accepts `host=HostHooks(...)`, a distributed `rate_limiter=`, `attachment_store=`, and `usage_sink=`. Defaults are safe for a single process: an in-memory per-principal limiter, no attachment persistence, and a no-op usage sink. Multi-instance deployments should supply a Redis/database-backed limiter. Billing rules intentionally belong in the host's `UsageSink`, not the core library.
+The direct tool route and chat orchestration both enforce `PYREALTIME_TOOL_TIMEOUT_SECONDS`. Chat additionally bounds tool rounds and serialized result size. Unknown, rejected, oversized, failed, or timed-out chat tools return safe error codes to the model and caller.
 
-Run it with:
+`OpenAIHostedTools` remains optional for hosted web search, file search, image generation, and a private model call. File search consumes host-authorized vector store IDs; vector-store creation/upload administration remains outside the core.
+
+## 9. Files and optional persistence
+
+Install `files`, construct `AttachmentProcessor`, and pass it to `create_app`/`mount_py_realtime`. The request body is raw bytes with `Content-Type` and URL-encoded `X-Filename`.
+
+Default preparation limits: 25 MB input, 120,000 extracted characters, 8,000-character chunks, 1,024-pixel normalized images, 250 pages/slides, and 100,000 spreadsheet cells.
+
+Processing is stateless by default. `AttachmentStore.save(principal_id, prepared_attachment)` is the vendor-neutral persistence extension. The host chooses filesystem, object storage, database, retention, encryption, and deletion policy.
+
+## 10. Guardrails and operational defaults
+
+| Guardrail | Default | Scope |
+| --- | --- | --- |
+| Chat request body | 256,000 bytes | Per request |
+| Current chat message | 32,000 characters | Per request |
+| Chat history | 20 messages / 120,000 characters | Per request |
+| Chat tool rounds | 4 | Per response |
+| Chat tool result | 32,000 serialized characters | Per call |
+| Chat output | 2,048 tokens | Provider request |
+| Chat timeout | 120 seconds | Whole completion, including provider rounds and tool calls |
+| Tool timeout | 120 seconds | Direct and chat tool execution |
+| Session rate | 10 / 60 seconds | Per principal |
+| Chat rate | 30 / 60 seconds | Per principal |
+| Tool rate | 60 / 60 seconds | Per principal |
+| File rate | 10 / 60 seconds | Per principal |
+
+Set a rate value to `0` to disable that built-in limit. `InMemoryRateLimiter` is process-local and resets on restart; multi-instance deployments must inject a shared `RateLimiter`. `NullUsageSink` records nothing; inject `UsageSink` for host-owned metering/billing. Neither protocol requires a vendor.
+
+Request logs are structured JSON by default. They contain timestamp, method, path, status, duration, and request ID. Headers, bearer tokens, prompts, history, tool arguments/results, and file content are not logged. `redact()` recursively removes common secret-bearing keys from host-added structured fields.
+
+CORS is disabled unless exact origins are configured. Configure HTTPS origins explicitly; a wildcard is not appropriate for credentialed production browser calls. Enforce outer body/rate limits at the proxy as defense in depth.
+
+## 11. Environment variables
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | Empty | Server-only provider key |
+| `APP_API_KEY` | Empty | Shared local/private bearer key |
+| `APP_BASE_URL` | `http://localhost:8000` | Host API identity/config value |
+| `APP_CORS_ORIGINS` | Empty | Comma-separated exact browser origins |
+| `PYREALTIME_ALLOW_ANONYMOUS` | `false` | Explicit prototype-only anonymous mode |
+| `PYREALTIME_MODEL` | `gpt-realtime-2.1-mini` | Realtime model |
+| `PYREALTIME_VOICE` | `marin` | Realtime voice |
+| `PYREALTIME_INSTRUCTIONS` | Concise Realtime prompt | Server-controlled Realtime instructions |
+| `PYREALTIME_CHAT_MODEL` | `gpt-5-mini` | Default chat model |
+| `PYREALTIME_CHAT_INSTRUCTIONS` | Concise assistant prompt | Server-controlled chat instructions |
+| `PYREALTIME_CHAT_TIMEOUT_SECONDS` | `120` | Overall chat timeout, including provider rounds and tool calls |
+| `PYREALTIME_CHAT_MAX_OUTPUT_TOKENS` | `2048` | Chat output cap |
+| `PYREALTIME_MAX_CHAT_REQUEST_BYTES` | `256000` | Chat JSON body cap |
+| `PYREALTIME_MAX_CHAT_MESSAGE_CHARS` | `32000` | Current-message cap |
+| `PYREALTIME_MAX_CHAT_HISTORY_MESSAGES` | `20` | History item cap |
+| `PYREALTIME_MAX_CHAT_HISTORY_CHARS` | `120000` | Aggregate history cap |
+| `PYREALTIME_MAX_CHAT_TOOL_ROUNDS` | `4` | Tool loop cap |
+| `PYREALTIME_MAX_CHAT_TOOL_RESULT_CHARS` | `32000` | Serialized tool result cap |
+| `PYREALTIME_REQUEST_TIMEOUT_SECONDS` | `20` | Realtime setup timeout |
+| `PYREALTIME_TOOL_TIMEOUT_SECONDS` | `120` | Tool execution/hosted-tool timeout |
+| `PYREALTIME_MAX_SDP_BYTES` | `1000000` | SDP request cap |
+| `PYREALTIME_MAX_TOOL_REQUEST_BYTES` | `64000` | Direct tool JSON cap |
+| `PYREALTIME_SESSION_RATE_LIMIT` | `10` | Sessions per rate window |
+| `PYREALTIME_CHAT_RATE_LIMIT` | `30` | Chats per rate window |
+| `PYREALTIME_TOOL_RATE_LIMIT` | `60` | Direct tools per rate window |
+| `PYREALTIME_FILE_RATE_LIMIT` | `10` | Files per rate window |
+| `PYREALTIME_RATE_LIMIT_WINDOW_SECONDS` | `60` | Process-local limiter window |
+| `PYREALTIME_REQUEST_ID_HEADER` | `X-Request-ID` | Correlation header |
+| `PYREALTIME_JSON_LOGS` | `true` | Safe structured access logging |
+| `PYREALTIME_TOOL_MODEL` | `gpt-5-mini` | Hosted backend tool model |
+| `PYREALTIME_IMAGE_MODEL` | `gpt-image-2.5-flare` | Hosted image model |
+| `PYREALTIME_VECTOR_STORE_IDS` | Empty | Static hosted file-search stores |
+
+`ServerSettings.from_env()` reads the process environment; it does not load `.env` files. Never put `OPENAI_API_KEY`, administrative tokens, database credentials, or private vector store IDs in public frontend variables.
+
+## 12. Installed independent example
+
+The release wheel installs `pyrealtime-example`. It uses only public APIs, mounts PyRealtime at `/ai`, and registers one `greet` tool.
+
+Local authentication:
 
 ```bash
-python -m uvicorn your_module:app --host 0.0.0.0 --port 8000
+OPENAI_API_KEY=sk-server-only APP_API_KEY=local-token pyrealtime-example
 ```
 
-## 9. Built-in server tools
-
-`OpenAIHostedTools.register()` adds these function schemas to the Realtime session and executes them through PyRealtime:
-
-| Tool | Arguments | Availability | Result |
-| --- | --- | --- | --- |
-| `web_search` | `{ "query": string }` | Always | `output_text`, citations, response ID |
-| `backend_openai_call` | `{ "input": string, "instructions": string }` | Always | Server-side Responses API text result |
-| `generate_image` | `prompt` plus optional size, quality, format, background | Always | Browser-ready image data URI |
-| `file_search` | `{ "query": string }` | Only with vector store IDs | Search answer and file citations |
-
-`backend_openai_call` is the single backend model call equivalent of the former plugin workflow. It is separate from the Realtime conversation.
-
-Web search uses OpenAI's Responses API hosted web search. File search uses OpenAI's hosted file search and requires a previously created vector store containing uploaded files. See the official [web search](https://developers.openai.com/api/docs/guides/tools-web-search) and [file search](https://developers.openai.com/api/docs/guides/tools-file-search) guides.
-
-The browser must display web citations as visible, clickable links when presenting sourced search results.
-
-## 10. Creating a file-search knowledge base
-
-PyRealtime consumes existing OpenAI vector store IDs; vector-store creation/upload administration intentionally remains an optional host service.
-
-Required sequence:
-
-1. Upload files to OpenAI using the Files API.
-2. Create a vector store.
-3. Add the uploaded files to that vector store.
-4. Wait until processing completes.
-5. Put the vector store ID in `PYREALTIME_VECTOR_STORE_IDS`.
-6. Restart the backend so the `file_search` schema is registered.
-
-If `PYREALTIME_VECTOR_STORE_IDS` is empty, `file_search` is intentionally absent from the Realtime session.
-
-Do not accept arbitrary vector store IDs from an untrusted browser in a multi-user application. Resolve allowed stores server-side from the authenticated `Principal`.
-
-For multi-tenant deployments, pass `vector_store_resolver=` to `OpenAIHostedTools`. The sync or async resolver receives the authenticated `Principal`; `file_search` fails closed when it returns no authorized stores.
-
-## 11. Tool execution rules
-
-- Tool names must match `^[a-z0-9_.-]{1,64}$`.
-- Parameters must be a JSON Schema object.
-- Set `additionalProperties: false` unless unknown fields are intentionally supported.
-- Validate arguments again inside the handler.
-- Derive user identity and ownership from `Principal`.
-- Return small JSON-compatible results.
-- Do not return secrets, raw credentials, database connections, or large binary data to the Realtime channel.
-- Device-local effects such as avatar animation and browser navigation belong in the frontend.
-- Business operations, database access, authorization, web search, file search, and model calls belong on the server.
-
-## 12. Direct library use without FastAPI
-
-```python
-import asyncio
-from pyrealtime import OpenAIRealtimeGateway, RealtimeSessionConfig
-
-
-async def main():
-    gateway = OpenAIRealtimeGateway(api_key="sk-server-only")
-    try:
-        config = RealtimeSessionConfig(
-            model="gpt-realtime-2.1-mini",
-            voice="marin",
-            instructions="Be concise and helpful.",
-            vad_threshold=0.5,
-        )
-        secret = await gateway.create_client_secret(
-            config,
-            safety_identifier="stable-hashed-internal-user-id",
-        )
-        print(secret["value"])
-    finally:
-        await gateway.aclose()
-
-
-asyncio.run(main())
-```
-
-Use the FastAPI factory when possible; it already applies authentication, authorization hooks, CORS, safety identifiers, error mapping, rate/body limits, request IDs, structured logs, tool registration, and attachment limits.
-
-## 13. Production checklist
-
-- Keep `OPENAI_API_KEY` only in a server secret manager.
-- Replace shared `APP_API_KEY` authentication with verified user sessions or JWTs.
-- Return a stable, non-secret internal user ID from the authentication callback.
-- Configure exact HTTPS frontend origins in `APP_CORS_ORIGINS`.
-- Serve both frontend and API over HTTPS.
-- Enforce authorization inside every state-changing tool.
-- Tune PyRealtime body/rate limits and enforce a second outer limit at the reverse proxy.
-- Replace the process-local limiter when running more than one API instance.
-- Forward `X-Request-ID`; built-in JSON logs omit headers, prompts, tokens, arguments, and file contents.
-- Resolve vector stores and other private resources from the principal.
-- Pin and review dependency versions.
-- Run `python -m pytest` before deployment.
-- Review the MIT license and compatibility policy for the intended deployment.
-
-## 14. Troubleshooting
-
-### `OPENAI_API_KEY` appears empty
-
-Creating `.env` does not load it automatically. Export the variable in the process environment or load it in your host application before importing the example server.
-
-### `401 Invalid application token`
-
-The browser token does not match `APP_API_KEY`, or your custom authenticator rejected it. Do not enter the OpenAI key in the frontend token field.
-
-### `502 OpenAI rejected the WebRTC session request`
-
-Check the backend response detail and confirm:
-
-- The OpenAI key is valid.
-- The project can use `PYREALTIME_MODEL`.
-- Project quota and rate limits are available.
-- The configured session fields are supported by that model.
-
-### Web search times out
-
-Search has its own timeout. Increase `PYREALTIME_TOOL_TIMEOUT_SECONDS` if necessary. The default is 120 seconds.
-
-### `file_search` is missing
-
-Set `PYREALTIME_VECTOR_STORE_IDS`, then restart the backend and reconnect the Realtime session. Tool schemas are loaded when the session is created.
-
-### Browser CORS failure
-
-Add the exact frontend origin, including scheme and port, to `APP_CORS_ORIGINS`, then restart the backend.
-
-### Port 8000 is already in use
-
-Stop the process that owns the port or start Uvicorn on another port and configure the frontend to use that URL.
-
-## 15. Tests and verification
+Production-style JWT verification:
 
 ```bash
-python -m pip install -e ".[api,auth,files,dev]"
+OPENAI_API_KEY=sk-server-only \
+EXAMPLE_JWKS_URL=https://identity.example.com/.well-known/jwks.json \
+EXAMPLE_JWT_AUDIENCE=my-api \
+EXAMPLE_JWT_ISSUER=https://identity.example.com/ \
+pyrealtime-example
+```
+
+The JWT needs `pyrealtime:tools` in its space-delimited `scope` claim for tool execution. Provider secrets remain server-side.
+
+## 13. Verification and release
+
+Contributor verification:
+
+```bash
+python -m pip install -e ".[api,auth,dev,files]"
 python -m pytest
+python -m build
+python -m twine check dist/*
 ```
 
-An LLM making changes must also:
+CI runs the suite and a wheel-only consumer smoke test on Python 3.10–3.13. The smoke test imports only public APIs, mounts the installed example, and exercises health, authentication, chat, a tool, validation errors, and rate limits. CI also lists wheel and source-archive contents.
 
-1. Read `instructions.md` and `ARCHITECTURE.md`.
-2. Preserve the server/frontend boundary.
-3. Add or update tests for changed behavior.
-4. Run the complete Python test suite.
-5. Update this guide when public configuration, endpoints, schemas, defaults, or setup commands change.
+Release steps are in `RELEASING.md`. A release is complete only when the tag workflow succeeds and the GitHub release contains both the `.whl` and `.tar.gz`. PyPI remains pending until both trusted-publisher configuration and an actual installation check succeed.
 
-## 16. Optional capability boundaries and known limitations
+## 14. Explicit non-goals and optional capabilities
 
-- The release workflow always creates validated wheel/sdist GitHub assets. PyPI publishing of `pyrealtime-ai` begins after the repository owner enables the documented trusted publisher and `PYPI_PUBLISH_ENABLED` variable.
-- The default limiter and attachment preparation are process-local/stateless. Production hosts can replace them through `RateLimiter` and `AttachmentStore` protocols.
-- Usage events are emitted through `UsageSink`; price tables, quotas, invoicing, and plan policy remain application-owned.
-- Vector-store creation/upload management remains an optional host administration service. Runtime search authorization is supported by `vector_store_resolver`.
-- Initial session policy is server-controlled. The reusable browser client exposes `updateSession()` for supported live updates; OpenAI does not permit changing the voice after audio has already been emitted.
-- PyRealtime does not provide login UI, tenant/company rules, databases, or browser rendering. Those are explicit host/client boundaries, not implicit demo assumptions.
+- User/account/tenant storage and login UI.
+- Company-specific authorization rules.
+- Billing prices, invoices, and plan enforcement; use `UsageSink`.
+- A required database, cache, queue, or object-storage vendor.
+- Vector-store creation/upload administration.
+- Durable conversation storage; clients or hosts may persist the neutral message schema.
+- Frontend UI, microphone capture, WebRTC rendering, or avatar behavior.
+
+The default chat path is stateless: the caller supplies bounded history. This avoids hidden provider conversation state and keeps persistence a host decision.

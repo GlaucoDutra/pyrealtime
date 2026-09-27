@@ -90,11 +90,22 @@ class ServerSettings:
     realtime_voice: str = "marin"
     realtime_instructions: str = "You are a concise and helpful realtime assistant."
     tool_model: str = "gpt-5-mini"
+    chat_model: str = "gpt-5-mini"
+    chat_instructions: str = "You are a concise and helpful assistant."
     image_model: str = "gpt-image-2.5-flare"
     vector_store_ids: tuple[str, ...] = ()
     max_sdp_bytes: int = 1_000_000
     max_tool_request_bytes: int = 64_000
+    max_chat_request_bytes: int = 256_000
+    max_chat_message_chars: int = 32_000
+    max_chat_history_messages: int = 20
+    max_chat_history_chars: int = 120_000
+    max_chat_tool_rounds: int = 4
+    max_chat_tool_result_chars: int = 32_000
+    chat_max_output_tokens: int = 2_048
+    chat_timeout_seconds: float = 120.0
     session_rate_limit: int = 10
+    chat_rate_limit: int = 30
     tool_rate_limit: int = 60
     file_rate_limit: int = 10
     rate_limit_window_seconds: int = 60
@@ -105,11 +116,26 @@ class ServerSettings:
         positive = {
             "max_sdp_bytes": self.max_sdp_bytes,
             "max_tool_request_bytes": self.max_tool_request_bytes,
+            "max_chat_request_bytes": self.max_chat_request_bytes,
+            "max_chat_message_chars": self.max_chat_message_chars,
+            "max_chat_history_messages": self.max_chat_history_messages,
+            "max_chat_history_chars": self.max_chat_history_chars,
+            "max_chat_tool_rounds": self.max_chat_tool_rounds,
+            "max_chat_tool_result_chars": self.max_chat_tool_result_chars,
+            "chat_max_output_tokens": self.chat_max_output_tokens,
             "rate_limit_window_seconds": self.rate_limit_window_seconds,
         }
         if any(value <= 0 for value in positive.values()):
             raise ValueError("Request-size and rate-window settings must be positive")
-        if min(self.session_rate_limit, self.tool_rate_limit, self.file_rate_limit) < 0:
+        if self.chat_timeout_seconds <= 0:
+            raise ValueError("chat_timeout_seconds must be positive")
+        if self.request_timeout_seconds <= 0 or self.tool_timeout_seconds <= 0:
+            raise ValueError("Request and tool timeouts must be positive")
+        if self.max_chat_history_messages > 100:
+            raise ValueError("max_chat_history_messages cannot exceed the public schema limit of 100")
+        if self.max_chat_message_chars > 64_000:
+            raise ValueError("max_chat_message_chars cannot exceed the public schema limit of 64000")
+        if min(self.session_rate_limit, self.chat_rate_limit, self.tool_rate_limit, self.file_rate_limit) < 0:
             raise ValueError("Rate limits cannot be negative")
 
     @classmethod
@@ -133,6 +159,11 @@ class ServerSettings:
                 "You are a concise and helpful realtime assistant.",
             ).strip(),
             tool_model=os.getenv("PYREALTIME_TOOL_MODEL", "gpt-5-mini").strip(),
+            chat_model=os.getenv("PYREALTIME_CHAT_MODEL", "gpt-5-mini").strip(),
+            chat_instructions=os.getenv(
+                "PYREALTIME_CHAT_INSTRUCTIONS",
+                "You are a concise and helpful assistant.",
+            ).strip(),
             image_model=os.getenv("PYREALTIME_IMAGE_MODEL", "gpt-image-2.5-flare").strip(),
             vector_store_ids=tuple(
                 value.strip()
@@ -141,7 +172,16 @@ class ServerSettings:
             ),
             max_sdp_bytes=int(os.getenv("PYREALTIME_MAX_SDP_BYTES", "1000000")),
             max_tool_request_bytes=int(os.getenv("PYREALTIME_MAX_TOOL_REQUEST_BYTES", "64000")),
+            max_chat_request_bytes=int(os.getenv("PYREALTIME_MAX_CHAT_REQUEST_BYTES", "256000")),
+            max_chat_message_chars=int(os.getenv("PYREALTIME_MAX_CHAT_MESSAGE_CHARS", "32000")),
+            max_chat_history_messages=int(os.getenv("PYREALTIME_MAX_CHAT_HISTORY_MESSAGES", "20")),
+            max_chat_history_chars=int(os.getenv("PYREALTIME_MAX_CHAT_HISTORY_CHARS", "120000")),
+            max_chat_tool_rounds=int(os.getenv("PYREALTIME_MAX_CHAT_TOOL_ROUNDS", "4")),
+            max_chat_tool_result_chars=int(os.getenv("PYREALTIME_MAX_CHAT_TOOL_RESULT_CHARS", "32000")),
+            chat_max_output_tokens=int(os.getenv("PYREALTIME_CHAT_MAX_OUTPUT_TOKENS", "2048")),
+            chat_timeout_seconds=float(os.getenv("PYREALTIME_CHAT_TIMEOUT_SECONDS", "120")),
             session_rate_limit=int(os.getenv("PYREALTIME_SESSION_RATE_LIMIT", "10")),
+            chat_rate_limit=int(os.getenv("PYREALTIME_CHAT_RATE_LIMIT", "30")),
             tool_rate_limit=int(os.getenv("PYREALTIME_TOOL_RATE_LIMIT", "60")),
             file_rate_limit=int(os.getenv("PYREALTIME_FILE_RATE_LIMIT", "10")),
             rate_limit_window_seconds=int(os.getenv("PYREALTIME_RATE_LIMIT_WINDOW_SECONDS", "60")),
