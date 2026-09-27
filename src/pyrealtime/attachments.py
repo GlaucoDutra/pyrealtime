@@ -8,7 +8,7 @@ import io
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import PurePath
-from typing import Any, Literal
+from typing import Any, Literal, Mapping, Protocol
 
 from .exceptions import AttachmentError, AttachmentTooLargeError
 
@@ -40,6 +40,12 @@ class PreparedAttachment:
         value = asdict(self)
         value["chunks"] = list(self.chunks)
         return {key: item for key, item in value.items() if item not in (None, (), {})}
+
+
+class AttachmentStore(Protocol):
+    """Optional persistence boundary implemented by the host application."""
+
+    async def save(self, principal_id: str, attachment: PreparedAttachment) -> Mapping[str, Any]: ...
 
 
 class AttachmentProcessor:

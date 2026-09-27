@@ -5,13 +5,16 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
-from typing import Any, Mapping, Sequence
+import inspect
+from typing import Any, Awaitable, Callable, Mapping, Sequence
 
 import httpx
 
 from .exceptions import UpstreamError
 from .principal import Principal
 from .tools import ToolRegistry
+
+VectorStoreResolver = Callable[[Principal], Sequence[str] | Awaitable[Sequence[str]]]
 
 
 class OpenAIHostedTools:
@@ -24,6 +27,7 @@ class OpenAIHostedTools:
         response_model: str = "gpt-5-mini",
         image_model: str = "gpt-image-2.5-flare",
         vector_store_ids: Sequence[str] = (),
+        vector_store_resolver: VectorStoreResolver | None = None,
         base_url: str = "https://api.openai.com",
         timeout: float = 120.0,
         http_client: httpx.AsyncClient | None = None,
@@ -34,6 +38,7 @@ class OpenAIHostedTools:
         self.response_model = response_model.strip()
         self.image_model = image_model.strip()
         self.vector_store_ids = tuple(value.strip() for value in vector_store_ids if value.strip())
+        self.vector_store_resolver = vector_store_resolver
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.http_client = http_client
@@ -133,7 +138,7 @@ class OpenAIHostedTools:
                 "revised_prompt": image.get("revised_prompt"),
             }
 
-        if self.vector_store_ids:
+        if self.vector_store_ids or self.vector_store_resolver is not None:
             @registry.tool(
                 name="file_search",
                 description="Search the configured private knowledge base for information relevant to the query.",
@@ -146,11 +151,18 @@ class OpenAIHostedTools:
             )
             async def file_search(arguments: Mapping[str, Any], principal: Principal) -> dict[str, Any]:
                 query = self._required_text(arguments, "query", maximum=4000)
+                vector_store_ids: Sequence[str] = self.vector_store_ids
+                if self.vector_store_resolver is not None:
+                    resolved = self.vector_store_resolver(principal)
+                    vector_store_ids = await resolved if inspect.isawaitable(resolved) else resolved
+                vector_store_ids = tuple(value.strip() for value in vector_store_ids if value.strip())
+                if not vector_store_ids:
+                    raise ValueError("No vector stores are authorized for this principal")
                 return await self._response(
                     input_text=query,
                     tools=[{
                         "type": "file_search",
-                        "vector_store_ids": list(self.vector_store_ids),
+                        "vector_store_ids": list(vector_store_ids),
                         "max_num_results": 5,
                     }],
                     include=["file_search_call.results"],

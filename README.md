@@ -8,9 +8,19 @@ For an end-to-end quickstart, environment reference, endpoint contracts, authent
 
 ## Install
 
+Pinned GitHub release (available without a source checkout):
+
 ```bash
-python -m pip install -e ".[api,dev,files]"
+python -m pip install "pyrealtime-ai[api,auth,files] @ https://github.com/GlaucoDutra/pyrealtime/releases/download/v0.2.0/pyrealtime_ai-0.2.0-py3-none-any.whl"
 ```
+
+After the PyPI trusted publisher is enabled, the equivalent pinned command is:
+
+```bash
+python -m pip install "pyrealtime-ai[api,auth,files]==0.2.0"
+```
+
+The distribution is `pyrealtime-ai`; imports remain `pyrealtime`. Contributors can use `python -m pip install -e ".[api,auth,dev,files]"` from a clone.
 
 Use `.env.example` as a deployment-variable template and set `OPENAI_API_KEY`. `ServerSettings.from_env()` reads the process environment; it does not load `.env` files automatically. Never expose the OpenAI key in frontend code.
 
@@ -143,7 +153,7 @@ Set `APP_CORS_ORIGINS` to a comma-separated allowlist of frontend origins. Do no
 
 Install the `files` extra and pass an `AttachmentProcessor` to `create_app`. The authenticated `POST /v1/files/prepare` endpoint accepts the raw file body, its MIME type in `Content-Type`, and its URL-encoded name in `X-Filename`.
 
-PyRealtime validates limits and returns a stable prepared-attachment model. It extracts and chunks text and source files, PDF, XLSX/XLSM, DOCX, and PPTX content; it also normalizes images for a Realtime image message. Processing is stateless and does not persist uploads.
+PyRealtime validates limits and returns a stable prepared-attachment model. It extracts and chunks text and source files, PDF, XLSX/XLSM, DOCX, and PPTX content; it also normalizes images for a Realtime image message. Processing is stateless by default. Pass an `AttachmentStore` implementation to persist the prepared result without coupling storage policy to the library.
 
 ```python
 from pyrealtime import AttachmentProcessor
@@ -170,3 +180,5 @@ The server should derive `OpenAI-Safety-Identifier` from an authenticated intern
 ```bash
 pytest
 ```
+
+PyRealtime is MIT licensed. See [CHANGELOG.md](CHANGELOG.md), [DEPENDENCY_POLICY.md](DEPENDENCY_POLICY.md), and [RELEASING.md](RELEASING.md).

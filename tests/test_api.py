@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from pyrealtime import AttachmentProcessor, Principal, ServerSettings, ToolRegistry
+from pyrealtime import AttachmentProcessor, HostHooks, Principal, ServerSettings, ToolRegistry
 from pyrealtime.api import create_app
 from pyrealtime.exceptions import UpstreamError
 
@@ -139,7 +139,86 @@ def test_upstream_authentication_error_is_actionable_without_echoing_raw_body():
 
     assert response.status_code == 502
     assert response.json() == {
-        "detail": "OpenAI rejected the API key. Enter a valid OpenAI project API key and restart the local prototype.",
+        "detail": "OpenAI rejected the API key. Configure a valid OpenAI project API key.",
         "upstream_status": 401,
         "upstream_code": "invalid_api_key",
     }
+
+
+def test_request_ids_limits_and_authorization_hooks():
+    seen = []
+
+    async def authorize(principal, request):
+        seen.append((principal.id, request.action, request.request_id))
+        return request.resource != "blocked"
+
+    tools = ToolRegistry()
+
+    @tools.tool(name="allowed", description="Allowed", parameters={"type": "object"})
+    def allowed(_, principal):
+        return {"id": principal.id}
+
+    @tools.tool(name="blocked", description="Blocked", parameters={"type": "object"})
+    def blocked(_, principal):
+        return {"id": principal.id}
+
+    app = create_app(
+        settings(tool_rate_limit=1),
+        tools=tools,
+        host=HostHooks(authorize=authorize),
+        gateway=FakeGateway(),
+    )
+    headers = {"Authorization": "Bearer app-secret", "X-Request-ID": "test-request"}
+    with TestClient(app) as client:
+        first = client.post("/v1/tools/allowed", headers=headers, json={})
+        limited = client.post("/v1/tools/allowed", headers=headers, json={})
+        forbidden = client.post("/v1/tools/blocked", headers=headers, json={})
+
+    assert first.status_code == 200
+    assert first.headers["x-request-id"] == "test-request"
+    assert limited.status_code == 429
+    assert limited.headers["retry-after"]
+    assert forbidden.status_code == 403
+    assert seen[0] == ("app-api-key", "tool.execute", "test-request")
+
+
+def test_tool_body_size_is_enforced_before_json_parsing():
+    app = create_app(settings(max_tool_request_bytes=4), tools=ToolRegistry(), gateway=FakeGateway())
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/tools/anything",
+            headers={"Authorization": "Bearer app-secret", "Content-Type": "application/json"},
+            content=b'{"long":true}',
+        )
+    assert response.status_code == 413
+
+
+def test_attachment_store_and_lifecycle_are_optional_extensions():
+    events = []
+
+    class Store:
+        async def save(self, principal_id, attachment):
+            return {"id": f"{principal_id}:{attachment.filename}"}
+
+    async def lifecycle(event):
+        events.append(event.name)
+
+    app = create_app(
+        settings(),
+        attachments=AttachmentProcessor(),
+        attachment_store=Store(),
+        host=HostHooks(on_lifecycle=lifecycle),
+        gateway=FakeGateway(),
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/files/prepare",
+            headers={
+                "Authorization": "Bearer app-secret",
+                "X-Filename": "notes.txt",
+                "Content-Type": "text/plain",
+            },
+            content=b"hello",
+        )
+    assert response.json()["storage"]["id"] == "app-api-key:notes.txt"
+    assert events == ["file.prepare.started", "file.prepare.completed"]

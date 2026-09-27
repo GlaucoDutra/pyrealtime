@@ -92,6 +92,25 @@ class ServerSettings:
     tool_model: str = "gpt-5-mini"
     image_model: str = "gpt-image-2.5-flare"
     vector_store_ids: tuple[str, ...] = ()
+    max_sdp_bytes: int = 1_000_000
+    max_tool_request_bytes: int = 64_000
+    session_rate_limit: int = 10
+    tool_rate_limit: int = 60
+    file_rate_limit: int = 10
+    rate_limit_window_seconds: int = 60
+    request_id_header: str = "X-Request-ID"
+    json_logs: bool = True
+
+    def __post_init__(self) -> None:
+        positive = {
+            "max_sdp_bytes": self.max_sdp_bytes,
+            "max_tool_request_bytes": self.max_tool_request_bytes,
+            "rate_limit_window_seconds": self.rate_limit_window_seconds,
+        }
+        if any(value <= 0 for value in positive.values()):
+            raise ValueError("Request-size and rate-window settings must be positive")
+        if min(self.session_rate_limit, self.tool_rate_limit, self.file_rate_limit) < 0:
+            raise ValueError("Rate limits cannot be negative")
 
     @classmethod
     def from_env(cls) -> "ServerSettings":
@@ -120,6 +139,14 @@ class ServerSettings:
                 for value in os.getenv("PYREALTIME_VECTOR_STORE_IDS", "").split(",")
                 if value.strip()
             ),
+            max_sdp_bytes=int(os.getenv("PYREALTIME_MAX_SDP_BYTES", "1000000")),
+            max_tool_request_bytes=int(os.getenv("PYREALTIME_MAX_TOOL_REQUEST_BYTES", "64000")),
+            session_rate_limit=int(os.getenv("PYREALTIME_SESSION_RATE_LIMIT", "10")),
+            tool_rate_limit=int(os.getenv("PYREALTIME_TOOL_RATE_LIMIT", "60")),
+            file_rate_limit=int(os.getenv("PYREALTIME_FILE_RATE_LIMIT", "10")),
+            rate_limit_window_seconds=int(os.getenv("PYREALTIME_RATE_LIMIT_WINDOW_SECONDS", "60")),
+            request_id_header=os.getenv("PYREALTIME_REQUEST_ID_HEADER", "X-Request-ID").strip(),
+            json_logs=os.getenv("PYREALTIME_JSON_LOGS", "true").lower() in {"1", "true", "yes"},
         )
 
     def session_config(self, *, tools: Sequence[Mapping[str, Any]] = ()) -> RealtimeSessionConfig:
