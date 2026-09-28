@@ -3,7 +3,7 @@ import asyncio
 import httpx
 import pytest
 
-from pyrealtime import AppToolRouter, Principal, ToolRegistry
+from pyrealtime import AppClient, AppToolRouter, Principal, ToolRegistry
 
 
 def test_registry_executes_async_tool_with_principal():
@@ -51,3 +51,28 @@ def test_app_router_rejects_invalid_tool_name():
     router = AppToolRouter(app_base_url="https://app.example.com")
     with pytest.raises(ValueError):
         router.build_url("../../admin")
+
+
+@pytest.mark.asyncio
+async def test_app_client_chat_uses_neutral_contract():
+    captured = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        captured["request"] = request
+        return httpx.Response(200, json={
+            "message": {"role": "assistant", "content": "Hello"},
+            "tool_calls": [],
+            "usage": None,
+        })
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as transport:
+        client = AppClient(
+            app_base_url="https://app.example.com/ai",
+            access_token="user-token",
+            http_client=transport,
+        )
+        response = await client.chat("Hi", history=[{"role": "assistant", "content": "Welcome"}])
+
+    assert str(captured["request"].url) == "https://app.example.com/ai/v1/chat"
+    assert captured["request"].headers["Authorization"] == "Bearer user-token"
+    assert response.message.content == "Hello"

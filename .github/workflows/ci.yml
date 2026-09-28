@@ -49,6 +49,8 @@ jobs:
           python -m venv .consumer
           WHEEL=$(find dist -name '*.whl' -print -quit)
           .consumer/bin/python -m pip install "${WHEEL}[api,auth]"
+          .consumer/bin/pyrealtime --version
+          .consumer/bin/pyrealtime doctor --no-network
           .consumer/bin/python tests/consumer_check.py
       - run: python -m zipfile -l dist/*.whl
       - run: tar -tzf dist/*.tar.gz

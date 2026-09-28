@@ -2,6 +2,16 @@
 
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and Semantic Versioning.
 
+## [0.3.0] - 2026-09-28
+
+### Added
+
+- `pyrealtime init` safe starter generator with auth, `HostHooks`, a tool, pinned dependencies, and `.env.example`.
+- `pyrealtime doctor` for Python, dependency, configuration, API, OpenAI model-access, and CORS checks without displaying secrets.
+- Explicit `DemoChatBackend`, `create_demo_app`, and `pyrealtime demo` no-key path with Realtime disabled.
+- Copy-paste vanilla JavaScript, React, FastAPI, Django, and Flask integration guides using released artifacts and stable API contracts.
+- `AppClient.chat()` for typed Python consumption of the provider-neutral chat contract.
+
 ## [0.2.1] - 2026-09-27
 
 ### Added
@@ -38,5 +48,6 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 - Initial source-checkout prototype.
 
 [0.2.0]: https://github.com/GlaucoDutra/pyrealtime/releases/tag/v0.2.0
+[0.3.0]: https://github.com/GlaucoDutra/pyrealtime/releases/tag/v0.3.0
 [0.2.1]: https://github.com/GlaucoDutra/pyrealtime/releases/tag/v0.2.1
 [0.1.0]: https://github.com/GlaucoDutra/pyrealtime/tree/e63dc8d

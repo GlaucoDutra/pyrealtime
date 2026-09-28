@@ -1,6 +1,6 @@
-# PyRealtime 0.2.1 complete usage guide
+# PyRealtime 0.3.0 complete usage guide
 
-This is the canonical reference for humans and language models integrating `pyrealtime-ai`. The README is the quick start; when they differ, this file defines the intended public contract for release `v0.2.1`.
+This is the canonical reference for humans and language models integrating `pyrealtime-ai`. The README is the quick start; when they differ, this file defines the intended public contract for release `v0.3.0`. Short client/framework recipes are in [QUICKSTARTS.md](QUICKSTARTS.md).
 
 ## 1. Definition of drop-in
 
@@ -18,15 +18,15 @@ The host retains user accounts, databases, tenant/company policy, billing, quota
 
 - Distribution: `pyrealtime-ai`
 - Import: `pyrealtime`
-- Current release: `0.2.1`
+- Current release: `0.3.0`
 - Supported Python: 3.10–3.13
 - License: MIT
-- PyPI status: pending; no matching `pyrealtime-ai` distribution was available when 0.2.1 was prepared.
+- PyPI status: pending; no matching `pyrealtime-ai` distribution was available when 0.3.0 was prepared.
 - Supported installation today: immutable GitHub release artifact.
 
 ```bash
 python -m venv .venv
-python -m pip install "pyrealtime-ai[api,auth] @ https://github.com/GlaucoDutra/pyrealtime/releases/download/v0.2.1/pyrealtime_ai-0.2.1-py3-none-any.whl"
+python -m pip install "pyrealtime-ai[api,auth] @ https://github.com/GlaucoDutra/pyrealtime/releases/download/v0.3.0/pyrealtime_ai-0.3.0-py3-none-any.whl"
 ```
 
 Extras:
@@ -40,7 +40,48 @@ Extras:
 
 Do not use `pip install pyrealtime`: that is a different, older project. Do not claim PyPI availability until `pip index versions pyrealtime-ai` returns the released version.
 
-## 3. Smallest standalone integration
+## 3. Adoption commands
+
+### Starter generator
+
+```bash
+pyrealtime init my-ai-backend
+```
+
+The command accepts only a new or empty directory and never overwrites an existing project. It creates:
+
+- `app.py` with FastAPI, shared-key development authentication, `HostHooks`, and one tool.
+- `.env.example` with explicit demo mode and server-only credential placeholders.
+- A release-pinned `requirements.txt` that does not require a source checkout.
+- A small README and `.gitignore`.
+
+The generated host starts with `PYREALTIME_DEMO=true`, fake chat, and no Realtime routes. Set it to `false` and configure a server-side OpenAI key to enable the real default adapters. Replace shared-key authentication and the permissive example authorization hook before public multi-user deployment.
+
+### Setup doctor
+
+Offline configuration/dependency check:
+
+```bash
+pyrealtime doctor --no-network
+```
+
+Running API, CORS, and OpenAI model-access check:
+
+```bash
+pyrealtime doctor --api-url http://127.0.0.1:8000/ai --origin http://localhost:3000
+```
+
+The OpenAI connectivity check retrieves model metadata and does not create a model response. The doctor reports only statuses and generic remediation text: it never prints API keys, bearer tokens, prompts, response bodies, or configuration values. Use `--skip-openai` to omit OpenAI connectivity and `--strict` to make warnings produce a nonzero exit code. `PYREALTIME_API_URL` and `PYREALTIME_DOCTOR_ORIGIN` are CLI defaults for the matching flags.
+
+### No-key demo
+
+```bash
+pyrealtime demo
+```
+
+This binds to `127.0.0.1:8000`, uses bearer token `local-demo-token` unless `APP_API_KEY` is already set, and never contacts OpenAI. Every chat response contains `DEMO MODE`, usage is `null`, and Realtime routes are absent. It also exposes the direct `get_status` tool. `DemoChatBackend` and `create_demo_app` are public for tests and onboarding, but they are not production AI implementations.
+
+## 4. Smallest standalone integration
 
 ```python
 from pyrealtime import Principal, ServerSettings, ToolRegistry
@@ -72,7 +113,7 @@ uvicorn your_module:app --host 127.0.0.1 --port 8000
 
 `APP_API_KEY` maps every valid request to the same development principal. It is suitable for local or private single-identity testing, not public multi-user login.
 
-## 4. Mounting into an existing ASGI application
+## 5. Mounting into an existing ASGI application
 
 `mount_py_realtime` mounts a self-contained FastAPI sub-application. This preserves request IDs, CORS, error handlers, docs, and limits without changing the host's middleware.
 
@@ -105,7 +146,7 @@ Chat and Realtime are enabled by default. Set `enable_chat=False` or `enable_rea
 
 Default network adapters create short-lived HTTP clients and are safe in a mounted child application. An injected HTTP client, gateway, or backend is host-owned and must be closed by the host lifespan.
 
-## 5. Authentication, authorization, and lifecycle
+## 6. Authentication, authorization, and lifecycle
 
 Every route except health resolves a `Principal` and fails closed:
 
@@ -146,7 +187,7 @@ Chat-triggered tools are authorized again with `tool.execute` immediately before
 
 Lifecycle events contain request ID, principal ID, event name, and small operational metadata—not prompts, tokens, tool arguments/results, or file contents.
 
-## 6. Chat API
+## 7. Chat API
 
 ### Request
 
@@ -203,7 +244,9 @@ Expected codes include `unauthorized`, `forbidden`, `invalid_request`, `request_
 
 The default `OpenAIResponsesChatBackend` uses the Responses API internally, sends `store: false`, executes only registered application tools, and runs a bounded tool loop. A host can inject any object implementing `ChatBackend`; the HTTP schema does not change.
 
-## 7. Other HTTP routes
+Python consumers can use `await AppClient(...).chat(message, history=...)`; it validates both the request and provider-neutral response with these same public models.
+
+## 8. Other HTTP routes
 
 | Route | Purpose |
 | --- | --- |
@@ -215,7 +258,7 @@ The default `OpenAIResponsesChatBackend` uses the Responses API internally, send
 
 Realtime routes expose the provider's SDP/token transport because those are protocol endpoints. `/v1/chat` deliberately does not expose provider response objects.
 
-## 8. Tools
+## 9. Tools
 
 Register only server-owned schemas:
 
@@ -240,7 +283,7 @@ The direct tool route and chat orchestration both enforce `PYREALTIME_TOOL_TIMEO
 
 `OpenAIHostedTools` remains optional for hosted web search, file search, image generation, and a private model call. File search consumes host-authorized vector store IDs; vector-store creation/upload administration remains outside the core.
 
-## 9. Files and optional persistence
+## 10. Files and optional persistence
 
 Install `files`, construct `AttachmentProcessor`, and pass it to `create_app`/`mount_py_realtime`. The request body is raw bytes with `Content-Type` and URL-encoded `X-Filename`.
 
@@ -248,7 +291,7 @@ Default preparation limits: 25 MB input, 120,000 extracted characters, 8,000-cha
 
 Processing is stateless by default. `AttachmentStore.save(principal_id, prepared_attachment)` is the vendor-neutral persistence extension. The host chooses filesystem, object storage, database, retention, encryption, and deletion policy.
 
-## 10. Guardrails and operational defaults
+## 11. Guardrails and operational defaults
 
 | Guardrail | Default | Scope |
 | --- | --- | --- |
@@ -271,7 +314,7 @@ Request logs are structured JSON by default. They contain timestamp, method, pat
 
 CORS is disabled unless exact origins are configured. Configure HTTPS origins explicitly; a wildcard is not appropriate for credentialed production browser calls. Enforce outer body/rate limits at the proxy as defense in depth.
 
-## 11. Environment variables
+## 12. Environment variables
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -310,7 +353,7 @@ CORS is disabled unless exact origins are configured. Configure HTTPS origins ex
 
 `ServerSettings.from_env()` reads the process environment; it does not load `.env` files. Never put `OPENAI_API_KEY`, administrative tokens, database credentials, or private vector store IDs in public frontend variables.
 
-## 12. Installed independent example
+## 13. Installed independent example
 
 The release wheel installs `pyrealtime-example`. It uses only public APIs, mounts PyRealtime at `/ai`, and registers one `greet` tool.
 
@@ -332,7 +375,7 @@ pyrealtime-example
 
 The JWT needs `pyrealtime:tools` in its space-delimited `scope` claim for tool execution. Provider secrets remain server-side.
 
-## 13. Verification and release
+## 14. Verification and release
 
 Contributor verification:
 
@@ -347,7 +390,7 @@ CI runs the suite and a wheel-only consumer smoke test on Python 3.10–3.13. Th
 
 Release steps are in `RELEASING.md`. A release is complete only when the tag workflow succeeds and the GitHub release contains both the `.whl` and `.tar.gz`. PyPI remains pending until both trusted-publisher configuration and an actual installation check succeed.
 
-## 14. Explicit non-goals and optional capabilities
+## 15. Explicit non-goals and optional capabilities
 
 - User/account/tenant storage and login UI.
 - Company-specific authorization rules.

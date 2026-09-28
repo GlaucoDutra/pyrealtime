@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from pyrealtime import ChatMessage, ChatResponse, ChatUsage, ServerSettings
+from pyrealtime import ChatMessage, ChatResponse, ChatUsage, ServerSettings, generate_starter
 from pyrealtime.example_app import create_example_app
 
 
@@ -24,6 +24,9 @@ class FakeRealtimeGateway:
 
 
 def main() -> None:
+    import tempfile
+    from pathlib import Path
+
     settings = ServerSettings(
         openai_api_key="server-only-test-key",
         app_api_key="local-token",
@@ -46,13 +49,17 @@ def main() -> None:
         second = client.post("/ai/v1/chat", headers=headers, json={"message": "again"})
         limited = client.post("/ai/v1/chat", headers=headers, json={"message": "again"})
 
-    assert health.json() == {"status": "ok", "service": "pyrealtime", "version": "0.2.1"}
+    assert health.json() == {"status": "ok", "service": "pyrealtime", "version": "0.3.0"}
     assert unauthorized.status_code == 401 and unauthorized.json()["error"]["code"] == "unauthorized"
     assert chat.status_code == 200 and chat.json()["message"]["content"] == "Echo: hello"
     assert tool.json()["message"] == "Hello, Ada!"
     assert invalid.status_code == 400 and invalid.json()["error"]["code"] == "invalid_request"
     assert second.status_code == 200
     assert limited.status_code == 429 and limited.headers["retry-after"]
+    starter = Path(tempfile.mkdtemp()) / "starter"
+    generate_starter(starter)
+    assert (starter / "app.py").is_file()
+    assert "pyrealtime_ai-0.3.0" in (starter / "requirements.txt").read_text()
 
 
 if __name__ == "__main__":

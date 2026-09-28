@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 from urllib.parse import urljoin, urlparse
 
 import httpx
 
 from .exceptions import ConfigurationError, UpstreamError
+from .chat import ChatMessage, ChatRequest, ChatResponse
 from .tools import TOOL_NAME_RE
 
 
@@ -40,6 +41,23 @@ class AppClient:
         response = await self._client.post(self._url("/v1/realtime/token"), headers=self._headers())
         self._raise(response, "Application failed to create a Realtime token")
         return response.json()
+
+    async def chat(
+        self,
+        message: str,
+        *,
+        history: Sequence[ChatMessage | Mapping[str, Any]] = (),
+    ) -> ChatResponse:
+        """Call the stable provider-neutral chat contract."""
+
+        request = ChatRequest(message=message, history=list(history))
+        response = await self._client.post(
+            self._url("/v1/chat"),
+            headers=self._headers(),
+            json=request.model_dump(),
+        )
+        self._raise(response, "Application chat request failed")
+        return ChatResponse.model_validate(response.json())
 
     async def call_tool(self, name: str, arguments: Mapping[str, Any]) -> Any:
         if not TOOL_NAME_RE.fullmatch(name):

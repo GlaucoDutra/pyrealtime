@@ -18,6 +18,8 @@ from .chat import (
     OpenAIResponsesChatBackend,
 )
 from .config import RealtimeSessionConfig, ServerSettings
+from .demo import DemoChatBackend, create_demo_app
+from .doctor import DoctorCheck, DoctorOptions, DoctorReport, format_report, run_doctor
 from .exceptions import (
     AttachmentError,
     AttachmentTooLargeError,
@@ -34,6 +36,7 @@ from .observability import JsonFormatter, configure_json_logging, redact
 from .principal import Principal
 from .tools import AppToolRouter, ToolDefinition, ToolRegistry
 from .usage import NullUsageSink, UsageEvent, UsageSink
+from .starter import generate_starter
 
 __all__ = [
     "__version__",
@@ -56,6 +59,11 @@ __all__ = [
     "ChatToolCall",
     "ChatUsage",
     "ConfigurationError",
+    "create_demo_app",
+    "DemoChatBackend",
+    "DoctorCheck",
+    "DoctorOptions",
+    "DoctorReport",
     "HostHooks",
     "InMemoryRateLimiter",
     "JsonFormatter",
@@ -81,5 +89,8 @@ __all__ = [
     "UsageSink",
     "VectorStoreResolver",
     "configure_json_logging",
+    "format_report",
+    "generate_starter",
     "redact",
+    "run_doctor",
 ]

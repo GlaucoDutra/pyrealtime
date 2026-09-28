@@ -19,6 +19,7 @@ Host-owned extension contracts keep product policy out of the core:
 - `AttachmentStore` optionally persists prepared results.
 - `VectorStoreResolver` maps an authenticated principal to allowed search stores.
 - `ChatBackend` replaces the provider adapter without changing `/v1/chat`.
+- `DemoChatBackend`, the starter generator, and setup doctor are adoption utilities; none owns host data or production policy.
 
 The reusable browser WebRTC/event implementation lives in the separate `@glaucodutra/pyrealtime-client` package. Its DOM and Three.js reference UI are not part of the Python library.
 
