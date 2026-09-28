@@ -11,7 +11,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from pyrealtime import AttachmentProcessor, OpenAIHostedTools, Principal, ServerSettings, ToolRegistry
+from pyrealtime import AttachmentProcessor, JevClient, JevTools, OpenAIHostedTools, Principal, ServerSettings, ToolRegistry
 from pyrealtime.api import create_app
 
 settings = ServerSettings.from_env()
@@ -23,6 +23,13 @@ OpenAIHostedTools(
     vector_store_ids=settings.vector_store_ids,
     timeout=settings.tool_timeout_seconds,
 ).register(tools)
+if settings.typesafe_api_key:
+    JevTools(JevClient(
+        api_key=settings.typesafe_api_key,
+        model=settings.jev_model,
+        timeout=settings.jev_timeout_seconds,
+        limits=settings.jev_limits(),
+    )).register(tools)
 _notes: dict[str, list[str]] = {}
 _notes_lock = asyncio.Lock()
 

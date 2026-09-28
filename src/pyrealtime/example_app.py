@@ -11,6 +11,7 @@ from .api import mount_py_realtime
 from .auth import JWTAuthenticator
 from .config import ServerSettings
 from .host import HostHooks
+from .jev import JevClient, JevTools
 from .principal import Principal
 from .tools import ToolRegistry
 
@@ -45,6 +46,13 @@ def create_example_app(
         raise RuntimeError("Set APP_API_KEY for local development, or configure EXAMPLE_JWKS_URL")
 
     tools = ToolRegistry()
+    if runtime.typesafe_api_key:
+        JevTools(JevClient(
+            api_key=runtime.typesafe_api_key,
+            model=runtime.jev_model,
+            timeout=runtime.jev_timeout_seconds,
+            limits=runtime.jev_limits(),
+        )).register(tools)
 
     @tools.tool(
         name="greet",

@@ -22,7 +22,7 @@ from typing import Any
 
 from fastapi import FastAPI
 
-from pyrealtime import DemoChatBackend, HostHooks, Principal, ServerSettings, ToolRegistry
+from pyrealtime import DemoChatBackend, HostHooks, JevClient, JevTools, Principal, ServerSettings, ToolRegistry
 from pyrealtime.api import mount_py_realtime
 
 
@@ -33,6 +33,13 @@ def enabled(name: str, default: str = "false") -> bool:
 settings = ServerSettings.from_env()
 demo_mode = enabled("PYREALTIME_DEMO", "true")
 tools = ToolRegistry()
+if settings.typesafe_api_key:
+    JevTools(JevClient(
+        api_key=settings.typesafe_api_key,
+        model=settings.jev_model,
+        timeout=settings.jev_timeout_seconds,
+        limits=settings.jev_limits(),
+    )).register(tools)
 
 
 @tools.tool(
@@ -70,6 +77,7 @@ mount_py_realtime(
         ".env.example": """# Copy to .env. Never commit real credentials.
 PYREALTIME_DEMO=true
 OPENAI_API_KEY=
+TYPESAFE_API_KEY=
 APP_API_KEY=change-this-local-development-token
 APP_CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:3000
 PYREALTIME_CHAT_MODEL=gpt-5-mini

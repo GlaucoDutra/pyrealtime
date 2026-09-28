@@ -1,6 +1,6 @@
-# PyRealtime 0.3.0 complete usage guide
+# PyRealtime 0.4.0 complete usage guide
 
-This is the canonical reference for humans and language models integrating `pyrealtime-ai`. The README is the quick start; when they differ, this file defines the intended public contract for release `v0.3.0`. Short client/framework recipes are in [QUICKSTARTS.md](QUICKSTARTS.md).
+This is the canonical reference for humans and language models integrating `pyrealtime-ai`. The README is the quick start; when they differ, this file defines the intended public contract for release `v0.4.0`. Short client/framework recipes are in [QUICKSTARTS.md](QUICKSTARTS.md).
 
 ## 1. Definition of drop-in
 
@@ -18,15 +18,15 @@ The host retains user accounts, databases, tenant/company policy, billing, quota
 
 - Distribution: `pyrealtime-ai`
 - Import: `pyrealtime`
-- Current release: `0.3.0`
+- Current release: `0.4.0`
 - Supported Python: 3.10–3.13
 - License: MIT
-- PyPI status: pending; no matching `pyrealtime-ai` distribution was available when 0.3.0 was prepared.
+- PyPI status: pending; use the verified GitHub release wheel.
 - Supported installation today: immutable GitHub release artifact.
 
 ```bash
 python -m venv .venv
-python -m pip install "pyrealtime-ai[api,auth] @ https://github.com/GlaucoDutra/pyrealtime/releases/download/v0.3.0/pyrealtime_ai-0.3.0-py3-none-any.whl"
+python -m pip install "pyrealtime-ai[api,auth] @ https://github.com/GlaucoDutra/pyrealtime/releases/download/v0.4.0/pyrealtime_ai-0.4.0-py3-none-any.whl"
 ```
 
 Extras:
@@ -283,6 +283,53 @@ The direct tool route and chat orchestration both enforce `PYREALTIME_TOOL_TIMEO
 
 `OpenAIHostedTools` remains optional for hosted web search, file search, image generation, and a private model call. File search consumes host-authorized vector store IDs; vector-store creation/upload administration remains outside the core.
 
+### TypeSafe JEV: open call and built-in agent tool
+
+JEV support is optional and uses TypeSafe's `POST /v1/systemone` contract. PyRealtime calls it directly with the existing `httpx` dependency; installing the TypeSafe SDK is not required. Keep `TYPESAFE_API_KEY` on the Python server.
+
+Use the open call when host application code owns the decision:
+
+```python
+from pyrealtime import JevChoiceQuestion, JevClient, JevNoulQuestion, JevScoreQuestion
+
+jev = JevClient(api_key=settings.typesafe_api_key, limits=settings.jev_limits())
+decision = await jev.system_one(
+    state={"message": ticket.body, "plan": ticket.plan},
+    questions={
+        "department": JevChoiceQuestion(
+            instructions="Which team should handle this?",
+            criteria={"billing": "Payment issue", "technical": "Product or integration issue"},
+        ),
+        "frustration": JevScoreQuestion(
+            instructions="How frustrated is the customer?",
+            criteria=["Calm", "Frustrated", "Very angry"],
+        ),
+        "urgent": JevNoulQuestion(instructions="Does this require urgent attention?"),
+    },
+)
+department = decision.answers["department"].choice
+```
+
+Use the built-in tool when the chat or Realtime agent should decide when and what to evaluate:
+
+```python
+from pyrealtime import JevClient, JevTools
+
+if settings.typesafe_api_key:
+    JevTools(JevClient(
+        api_key=settings.typesafe_api_key,
+        model=settings.jev_model,
+        timeout=settings.jev_timeout_seconds,
+        limits=settings.jev_limits(),
+    )).register(tools)
+```
+
+This registers `jev_decide` in the same `ToolRegistry` used by `/v1/chat`, Realtime session schemas, and the authenticated direct tool route. The agent supplies JSON-compatible `state` and arbitrary named Choice, Score, or Noul questions. It cannot supply the provider model, base URL, API key, timeout, or limits; those remain host-controlled. The tool description directs the agent to use JEV for classification, scoring, routing, and other structured decisions—not factual lookup or prose generation.
+
+JEV validation happens before provider traffic: state size, question count, instruction length, criterion count, and criterion length are bounded. Provider timeouts and failures become safe `UpstreamError` values, and upstream response bodies are not retained because they may echo sensitive state. Authentication and `HostHooks.authorize` still run before HTTP tool execution. For Realtime, the browser routes the function call through PyRealtime's authenticated tool endpoint; it never calls TypeSafe directly.
+
+`JevClient` also accepts an injected `httpx.AsyncClient` for host-owned connection pooling and testing. Its default short-lived client is convenient for low-volume integration. Rate limiting and usage policy remain host concerns: direct `jev_decide` requests use PyRealtime's tool rate limit, while direct Python `system_one()` calls should be wrapped in the host's own limiter/meter when required.
+
 ## 10. Files and optional persistence
 
 Install `files`, construct `AttachmentProcessor`, and pass it to `create_app`/`mount_py_realtime`. The request body is raw bytes with `Content-Type` and URL-encoded `X-Filename`.
@@ -319,6 +366,7 @@ CORS is disabled unless exact origins are configured. Configure HTTPS origins ex
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | Empty | Server-only provider key |
+| `TYPESAFE_API_KEY` | Empty | Optional server-only TypeSafe JEV key; JEV is disabled unless the host registers it |
 | `APP_API_KEY` | Empty | Shared local/private bearer key |
 | `APP_BASE_URL` | `http://localhost:8000` | Host API identity/config value |
 | `APP_CORS_ORIGINS` | Empty | Comma-separated exact browser origins |
@@ -350,8 +398,15 @@ CORS is disabled unless exact origins are configured. Configure HTTPS origins ex
 | `PYREALTIME_TOOL_MODEL` | `gpt-5-mini` | Hosted backend tool model |
 | `PYREALTIME_IMAGE_MODEL` | `gpt-image-2.5-flare` | Hosted image model |
 | `PYREALTIME_VECTOR_STORE_IDS` | Empty | Static hosted file-search stores |
+| `PYREALTIME_JEV_MODEL` | `jev-latest` | Host-controlled JEV model |
+| `PYREALTIME_JEV_TIMEOUT_SECONDS` | `10` | JEV provider request timeout |
+| `PYREALTIME_JEV_MAX_STATE_BYTES` | `128000` | Maximum UTF-8 JSON-encoded JEV state |
+| `PYREALTIME_JEV_MAX_QUESTIONS` | `16` | Questions per JEV call; schema maximum is 64 |
+| `PYREALTIME_JEV_MAX_INSTRUCTIONS_CHARS` | `1000` | Instruction characters per JEV question |
+| `PYREALTIME_JEV_MAX_CRITERIA` | `64` | Choice/Score criteria per question; schema maximum is 255 |
+| `PYREALTIME_JEV_MAX_CRITERION_CHARS` | `1000` | Characters per criterion description |
 
-`ServerSettings.from_env()` reads the process environment; it does not load `.env` files. Never put `OPENAI_API_KEY`, administrative tokens, database credentials, or private vector store IDs in public frontend variables.
+`ServerSettings.from_env()` reads the process environment; it does not load `.env` files. Never put `OPENAI_API_KEY`, `TYPESAFE_API_KEY`, administrative tokens, database credentials, or private vector store IDs in public frontend variables.
 
 ## 13. Installed independent example
 

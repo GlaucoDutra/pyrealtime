@@ -31,6 +31,22 @@ from .exceptions import (
 from .gateway import OpenAIRealtimeGateway
 from .host import AuthorizationRequest, HostHooks, LifecycleEvent
 from .hosted_tools import OpenAIHostedTools, VectorStoreResolver
+from .jev import (
+    JevAnswer,
+    JevChoiceAnswer,
+    JevChoiceQuestion,
+    JevClient,
+    JevLimits,
+    JevNoulAnswer,
+    JevNoulQuestion,
+    JevQuestion,
+    JevRequest,
+    JevResponse,
+    JevScoreAnswer,
+    JevScoreQuestion,
+    JevTools,
+    JevUsage,
+)
 from .limits import InMemoryRateLimiter, RateLimit, RateLimitDecision, RateLimiter
 from .observability import JsonFormatter, configure_json_logging, redact
 from .principal import Principal
@@ -68,6 +84,20 @@ __all__ = [
     "InMemoryRateLimiter",
     "JsonFormatter",
     "JWTAuthenticator",
+    "JevAnswer",
+    "JevChoiceAnswer",
+    "JevChoiceQuestion",
+    "JevClient",
+    "JevLimits",
+    "JevNoulAnswer",
+    "JevNoulQuestion",
+    "JevQuestion",
+    "JevRequest",
+    "JevResponse",
+    "JevScoreAnswer",
+    "JevScoreQuestion",
+    "JevTools",
+    "JevUsage",
     "LifecycleEvent",
     "NullUsageSink",
     "OpenAIRealtimeGateway",

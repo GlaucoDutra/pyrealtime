@@ -2,6 +2,8 @@
 
 These examples use released artifacts and the stable PyRealtime HTTP contract. Keep OpenAI keys on the Python server. Browser examples receive only a user token issued by the host application.
 
+Optional JEV decisions are also backend-only. Register `JevTools(JevClient(api_key=settings.typesafe_api_key))` in the server's `ToolRegistry`; browser code remains unchanged and never receives `TYPESAFE_API_KEY`.
+
 ## Vanilla JavaScript: chat over HTTP
 
 This needs no SDK or bundler:

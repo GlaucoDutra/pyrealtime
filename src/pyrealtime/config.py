@@ -111,6 +111,14 @@ class ServerSettings:
     rate_limit_window_seconds: int = 60
     request_id_header: str = "X-Request-ID"
     json_logs: bool = True
+    typesafe_api_key: str = ""
+    jev_model: str = "jev-latest"
+    jev_timeout_seconds: float = 10.0
+    jev_max_state_bytes: int = 128_000
+    jev_max_questions: int = 16
+    jev_max_instructions_chars: int = 1_000
+    jev_max_criteria: int = 64
+    jev_max_criterion_chars: int = 1_000
 
     def __post_init__(self) -> None:
         positive = {
@@ -124,6 +132,11 @@ class ServerSettings:
             "max_chat_tool_result_chars": self.max_chat_tool_result_chars,
             "chat_max_output_tokens": self.chat_max_output_tokens,
             "rate_limit_window_seconds": self.rate_limit_window_seconds,
+            "jev_max_state_bytes": self.jev_max_state_bytes,
+            "jev_max_questions": self.jev_max_questions,
+            "jev_max_instructions_chars": self.jev_max_instructions_chars,
+            "jev_max_criteria": self.jev_max_criteria,
+            "jev_max_criterion_chars": self.jev_max_criterion_chars,
         }
         if any(value <= 0 for value in positive.values()):
             raise ValueError("Request-size and rate-window settings must be positive")
@@ -131,6 +144,12 @@ class ServerSettings:
             raise ValueError("chat_timeout_seconds must be positive")
         if self.request_timeout_seconds <= 0 or self.tool_timeout_seconds <= 0:
             raise ValueError("Request and tool timeouts must be positive")
+        if self.jev_timeout_seconds <= 0:
+            raise ValueError("jev_timeout_seconds must be positive")
+        if not self.jev_model.strip():
+            raise ValueError("jev_model cannot be empty")
+        if self.jev_max_questions > 64 or self.jev_max_criteria > 255:
+            raise ValueError("JEV limits exceed the public schema maximum")
         if self.max_chat_history_messages > 100:
             raise ValueError("max_chat_history_messages cannot exceed the public schema limit of 100")
         if self.max_chat_message_chars > 64_000:
@@ -142,6 +161,7 @@ class ServerSettings:
     def from_env(cls) -> "ServerSettings":
         return cls(
             openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
+            typesafe_api_key=os.getenv("TYPESAFE_API_KEY", "").strip(),
             app_base_url=os.getenv("APP_BASE_URL", "http://localhost:8000").strip(),
             app_api_key=os.getenv("APP_API_KEY", "").strip() or None,
             cors_origins=tuple(
@@ -187,6 +207,25 @@ class ServerSettings:
             rate_limit_window_seconds=int(os.getenv("PYREALTIME_RATE_LIMIT_WINDOW_SECONDS", "60")),
             request_id_header=os.getenv("PYREALTIME_REQUEST_ID_HEADER", "X-Request-ID").strip(),
             json_logs=os.getenv("PYREALTIME_JSON_LOGS", "true").lower() in {"1", "true", "yes"},
+            jev_model=os.getenv("PYREALTIME_JEV_MODEL", "jev-latest").strip(),
+            jev_timeout_seconds=float(os.getenv("PYREALTIME_JEV_TIMEOUT_SECONDS", "10")),
+            jev_max_state_bytes=int(os.getenv("PYREALTIME_JEV_MAX_STATE_BYTES", "128000")),
+            jev_max_questions=int(os.getenv("PYREALTIME_JEV_MAX_QUESTIONS", "16")),
+            jev_max_instructions_chars=int(os.getenv("PYREALTIME_JEV_MAX_INSTRUCTIONS_CHARS", "1000")),
+            jev_max_criteria=int(os.getenv("PYREALTIME_JEV_MAX_CRITERIA", "64")),
+            jev_max_criterion_chars=int(os.getenv("PYREALTIME_JEV_MAX_CRITERION_CHARS", "1000")),
+        )
+
+    def jev_limits(self) -> "JevLimits":
+        """Build reusable JEV limits from server configuration."""
+        from .jev import JevLimits
+
+        return JevLimits(
+            max_state_bytes=self.jev_max_state_bytes,
+            max_questions=self.jev_max_questions,
+            max_instructions_chars=self.jev_max_instructions_chars,
+            max_criteria=self.jev_max_criteria,
+            max_criterion_chars=self.jev_max_criterion_chars,
         )
 
     def session_config(self, *, tools: Sequence[Mapping[str, Any]] = ()) -> RealtimeSessionConfig:

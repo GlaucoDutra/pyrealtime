@@ -19,7 +19,7 @@ def test_starter_generator_creates_complete_safe_project(tmp_path: Path, monkeyp
     assert {path.name for path in created} == {
         "app.py", ".env.example", ".gitignore", "requirements.txt", "README.md",
     }
-    assert "v0.3.0/pyrealtime_ai-0.3.0-py3-none-any.whl" in (target / "requirements.txt").read_text()
+    assert "v0.4.0/pyrealtime_ai-0.4.0-py3-none-any.whl" in (target / "requirements.txt").read_text()
     assert "PYREALTIME_DEMO=true" in (target / ".env.example").read_text()
     assert "HostHooks" in (target / "app.py").read_text()
 

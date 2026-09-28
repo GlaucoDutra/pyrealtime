@@ -2,6 +2,18 @@
 
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and Semantic Versioning.
 
+## [0.4.0] - 2026-09-28
+
+### Added
+
+- A bounded, typed `JevClient.system_one()` open call for TypeSafe JEV Choice, Score, and Noul decisions.
+- An opt-in `JevTools` integration that registers `jev_decide` for both chat and Realtime agents.
+- Server-owned TypeSafe credentials, model selection, timeouts, validation limits, documentation, and reference-app wiring.
+
+### Security
+
+- JEV inputs are validated before provider traffic, and provider errors never retain response bodies that could echo state or credentials.
+
 ## [0.3.0] - 2026-09-28
 
 ### Added
@@ -48,6 +60,7 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 - Initial source-checkout prototype.
 
 [0.2.0]: https://github.com/GlaucoDutra/pyrealtime/releases/tag/v0.2.0
+[0.4.0]: https://github.com/GlaucoDutra/pyrealtime/releases/tag/v0.4.0
 [0.3.0]: https://github.com/GlaucoDutra/pyrealtime/releases/tag/v0.3.0
 [0.2.1]: https://github.com/GlaucoDutra/pyrealtime/releases/tag/v0.2.1
 [0.1.0]: https://github.com/GlaucoDutra/pyrealtime/tree/e63dc8d

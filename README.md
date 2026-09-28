@@ -2,6 +2,8 @@
 
 PyRealtime is a reusable Python backend for authenticated chat, OpenAI Realtime WebRTC sessions, application tools, and prepared file attachments. It keeps provider credentials and authorization on the server and exposes stable, client-neutral HTTP contracts.
 
+Optional TypeSafe JEV support provides both a direct typed `JevClient.system_one()` call and an opt-in `jev_decide` function tool for chat and Realtime agents. `TYPESAFE_API_KEY` remains server-side.
+
 The canonical integration reference is [docs/LLM_USAGE.md](docs/LLM_USAGE.md). Copy-paste client and framework recipes are in [docs/QUICKSTARTS.md](docs/QUICKSTARTS.md).
 
 ## Drop-in contract
@@ -14,16 +16,16 @@ The canonical integration reference is [docs/LLM_USAGE.md](docs/LLM_USAGE.md). C
 
 No source checkout, frontend repository, database, tenant model, or specific identity provider is required.
 
-## Install 0.3.0
+## Install 0.4.0
 
 The supported public route is the immutable GitHub release wheel:
 
 ```bash
 python -m venv .venv
-python -m pip install "pyrealtime-ai[api,auth] @ https://github.com/GlaucoDutra/pyrealtime/releases/download/v0.3.0/pyrealtime_ai-0.3.0-py3-none-any.whl"
+python -m pip install "pyrealtime-ai[api,auth] @ https://github.com/GlaucoDutra/pyrealtime/releases/download/v0.4.0/pyrealtime_ai-0.4.0-py3-none-any.whl"
 ```
 
-PyPI publication is pending. `pip install pyrealtime-ai==0.3.0` is not a supported command until the package is visible on PyPI.
+PyPI publication is pending. `pip install pyrealtime-ai==0.4.0` is not a supported command until the package is visible on PyPI.
 
 ## Fastest first run
 
@@ -74,6 +76,20 @@ async def get_status(arguments, principal: Principal):
 
 app = create_app(settings, tools=tools)
 ```
+
+To add JEV decisions, set `TYPESAFE_API_KEY` on the server and register the built-in tool:
+
+```python
+from pyrealtime import JevClient, JevTools
+
+JevTools(JevClient(
+    api_key=settings.typesafe_api_key,
+    model=settings.jev_model,
+    limits=settings.jev_limits(),
+)).register(tools)
+```
+
+The same client can be called directly from host code without involving an agent. See the canonical guide for Choice, Score, and Noul examples and limits.
 
 Run `uvicorn your_module:app`. Send the development token to protected endpoints:
 
